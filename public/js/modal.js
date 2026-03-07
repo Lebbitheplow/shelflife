@@ -106,7 +106,7 @@ function openModal(game) {
     // YouTube fallback — render in iframe, API key stays server-side
     if (url.startsWith('yt:')) {
       const videoId = url.slice(3);
-      ytFrame.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&loop=1&playlist=${videoId}&rel=0`;
+      ytFrame.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&loop=1&playlist=${videoId}&rel=0&playsinline=1`;
       ytFrame.classList.add('visible');
       return;
     }
