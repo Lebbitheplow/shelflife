@@ -122,32 +122,63 @@ function scoreGame(meta, profile, game) {
   const candidateName = meta.name || '';
 
   // ── Franchise / series detection ──────────────────────────────────────
-  // Check if candidate shares significant title words with any loved game
+  // Rules:
+  //   overlap >= 2                          → franchise bonus (strong signal)
+  //   overlap == 1 + same developer         → franchise bonus (dev confirms series)
+  //   overlap == 1 + 2+ shared tags         → reduced bonus (tag similarity validates)
+  //   overlap == 1, no dev, <2 shared tags  → no bonus (too weak)
+  const candidateTags = new Set(tags);
+  const candidateDevs = new Set(devs);
+
   let bestFranchiseMatch = null;
   let bestFranchiseOverlap = 0;
+  let bestFranchiseBonus = 0;
+
   for (const lovedGame of profile.lovedGames) {
     if (lovedGame.appid === game?.appid) continue; // skip self
     const lovedMeta = profile._metadataMap?.[lovedGame.appid];
     const lovedName = lovedMeta?.name || lovedGame._name || '';
     if (!lovedName) continue;
-    // Skip if names are essentially the same game (all meaningful words match)
+
+    // Skip near-identical names (same game, different edition/appid)
     const candidateWords = titleWords(candidateName);
-    const lovedWords = new Set(titleWords(lovedName));
+    const lovedWordSet = new Set(titleWords(lovedName));
     const matchRatio = candidateWords.length > 0
-      ? candidateWords.filter(w => lovedWords.has(w)).length / candidateWords.length
+      ? candidateWords.filter(w => lovedWordSet.has(w)).length / candidateWords.length
       : 0;
     if (matchRatio >= 0.85) continue;
+
     const overlap = titleOverlap(candidateName, lovedName);
-    if (overlap >= 1 && overlap > bestFranchiseOverlap) {
+    if (overlap < 1) continue;
+
+    let bonus = 0;
+    if (overlap >= 2) {
+      // Strong: 2+ shared meaningful title words
+      bonus = 30;
+    } else {
+      // overlap == 1 — need corroborating signal
+      const lovedDevs = parseJSON(lovedMeta?.developers || '[]');
+      const sharedDev = lovedDevs.some(d => candidateDevs.has(d));
+      const lovedTags = parseJSON(lovedMeta?.tags || '[]');
+      const sharedTagCount = lovedTags.filter(t => candidateTags.has(t)).length;
+
+      if (sharedDev) {
+        bonus = 15; // same developer confirms same series
+      } else if (sharedTagCount >= 2) {
+        bonus = 8;  // tag overlap suggests same genre at least
+      }
+      // else: single word, different dev, different tags → skip
+    }
+
+    if (bonus > 0 && overlap > bestFranchiseOverlap) {
       bestFranchiseOverlap = overlap;
+      bestFranchiseBonus = bonus;
       bestFranchiseMatch = { name: lovedName, overlap, playtime: lovedGame.playtime_forever };
     }
   }
 
   if (bestFranchiseMatch) {
-    // Strong franchise signal — big score bonus
-    const bonus = bestFranchiseOverlap >= 2 ? 30 : 15;
-    score += bonus;
+    score += bestFranchiseBonus;
     const hrs = Math.round(bestFranchiseMatch.playtime / 60);
     reasonCandidates.push({
       text: hrs >= 5
