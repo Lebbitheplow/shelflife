@@ -1,0 +1,18 @@
+services:
+  shelflife:
+    build: .
+    # Alternatively, pull a pre-built image:
+    # image: ghcr.io/lebbitheplow/shelflife:latest
+    container_name: shelflife
+    restart: unless-stopped
+    ports:
+      - "3233:3233"
+    volumes:
+      - ./data:/app/data
+    environment:
+      # ── Required ──────────────────────────────────────────────────
+      - STEAM_API_KEY=your_steam_web_api_key_here
+      - SESSION_SECRET=change_this_to_a_long_random_string
+      # ── Optional ──────────────────────────────────────────────────
+      - YOUTUBE_API_KEY=your_youtube_data_api_v3_key_here
+      - PORT=3233

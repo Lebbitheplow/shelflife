@@ -72,6 +72,18 @@ npm run dev
 
 Then visit `http://localhost:3233` and paste your Steam profile URL.
 
+### Docker
+
+```bash
+# Build and start
+docker compose up -d
+
+# Or pull a pre-built image (edit docker-compose.yml to use image: instead of build:)
+docker compose up -d
+```
+
+Edit `docker-compose.yml` with your API keys before starting. The `data/` directory is mounted as a volume so your cache persists across container restarts.
+
 ## How It Works
 
 1. You enter a Steam profile URL or custom ID
