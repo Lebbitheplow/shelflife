@@ -6,10 +6,6 @@ const db = new Database(DB_PATH);
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 
-// Migrations — add columns introduced after initial schema
-try { db.exec('ALTER TABLE game_metadata ADD COLUMN igdb_id INTEGER'); } catch {}
-try { db.exec('ALTER TABLE game_metadata ADD COLUMN igdb_collection INTEGER'); } catch {}
-
 db.exec(`
   CREATE TABLE IF NOT EXISTS game_metadata (
     appid INTEGER PRIMARY KEY,
@@ -60,6 +56,10 @@ db.exec(`
     updated_at INTEGER
   );
 `);
+
+// Migrations — must run after CREATE TABLE so they work on both fresh and existing DBs
+try { db.exec('ALTER TABLE game_metadata ADD COLUMN igdb_id INTEGER'); } catch {}
+try { db.exec('ALTER TABLE game_metadata ADD COLUMN igdb_collection INTEGER'); } catch {}
 
 // Game metadata
 function getGameMetadata(appid) {
