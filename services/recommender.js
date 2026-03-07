@@ -13,6 +13,8 @@ const STOP_WORDS = new Set([
   'do','does','did','will','would','could','should','may','might',
   'i','ii','iii','iv','v','vi','vii','viii','ix','x',
   'edition','definitive','complete','remastered','deluxe','ultimate',
+  'director','cut','enhanced','goty','anniversary','classic','gold',
+  'premium','special','extended','expanded','redux','renewal','remake',
   'game','games','series','collection','pack','bundle','ep','chapter',
 ]);
 
@@ -124,9 +126,17 @@ function scoreGame(meta, profile, game) {
   let bestFranchiseMatch = null;
   let bestFranchiseOverlap = 0;
   for (const lovedGame of profile.lovedGames) {
+    if (lovedGame.appid === game?.appid) continue; // skip self
     const lovedMeta = profile._metadataMap?.[lovedGame.appid];
     const lovedName = lovedMeta?.name || lovedGame._name || '';
     if (!lovedName) continue;
+    // Skip if names are essentially the same game (all meaningful words match)
+    const candidateWords = titleWords(candidateName);
+    const lovedWords = new Set(titleWords(lovedName));
+    const matchRatio = candidateWords.length > 0
+      ? candidateWords.filter(w => lovedWords.has(w)).length / candidateWords.length
+      : 0;
+    if (matchRatio >= 0.85) continue;
     const overlap = titleOverlap(candidateName, lovedName);
     if (overlap >= 1 && overlap > bestFranchiseOverlap) {
       bestFranchiseOverlap = overlap;
@@ -174,7 +184,7 @@ function scoreGame(meta, profile, game) {
     if (w > bestTagW) {
       bestTagW = w;
       const seed = profile.tagSeed[tag];
-      bestTagReason = seed && w > 0.35
+      bestTagReason = seed && w > 0.55
         ? `Because you loved ${seed.name}`
         : null;
     }
@@ -302,8 +312,17 @@ function buildRecommendations(steamId, library, allMetadata, reviewedAppids = ne
 
   scored.sort((a, b) => b.score - a.score);
 
-  const neverTouched = scored.filter(g => g.playtime === 0);
-  const almostStarted = scored.filter(g => g.playtime > 0 && g.playtime < ALMOST_STARTED_MAX);
+  // Deduplicate by name — keep highest-scored entry (first after sort)
+  const seenNames = new Set();
+  const deduped = scored.filter(g => {
+    const key = g.name?.toLowerCase().trim();
+    if (!key || seenNames.has(key)) return false;
+    seenNames.add(key);
+    return true;
+  });
+
+  const neverTouched = deduped.filter(g => g.playtime === 0);
+  const almostStarted = deduped.filter(g => g.playtime > 0 && g.playtime < ALMOST_STARTED_MAX);
 
   // Gameplay-relevant Steam categories to surface in the genre dropdown
   const CATEGORY_ALLOWLIST = new Set([
@@ -314,7 +333,7 @@ function buildRecommendations(steamId, library, allMetadata, reviewedAppids = ne
   ]);
 
   const genreMap = {};
-  for (const g of scored) {
+  for (const g of deduped) {
     for (const genre of g.genres) {
       if (!genreMap[genre]) genreMap[genre] = [];
       genreMap[genre].push(g);
@@ -331,8 +350,8 @@ function buildRecommendations(steamId, library, allMetadata, reviewedAppids = ne
   }
 
   const pools = {
-    top20: scored.slice(0, 20),
-    topPicks: scored.slice(0, 500),
+    top20: deduped.slice(0, 20),
+    topPicks: deduped.slice(0, 500),
     neverTouched: neverTouched.slice(0, 500),
     almostStarted: almostStarted.slice(0, 300),
     byGenre,
