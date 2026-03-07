@@ -103,10 +103,12 @@ function openModal(game) {
   function loadTrailer(url) {
     if (!url || url === 'none') return;
 
-    // YouTube fallback — render in iframe, API key stays server-side
+    // YouTube fallback — render in iframe on desktop only; mobile would open YouTube app
     if (url.startsWith('yt:')) {
+      const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || window.innerWidth < 768;
+      if (isMobile) return; // leave poster visible on mobile
       const videoId = url.slice(3);
-      ytFrame.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&loop=1&playlist=${videoId}&rel=0&playsinline=1`;
+      ytFrame.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&loop=1&playlist=${videoId}&rel=0`;
       ytFrame.classList.add('visible');
       return;
     }
