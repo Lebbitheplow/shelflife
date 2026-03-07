@@ -177,8 +177,9 @@ function updateTrailerUrl(appid, trailer_mp4) {
 }
 
 function updateGameDetails(appid, { trailer_mp4, short_description }) {
-  db.prepare('UPDATE game_metadata SET trailer_mp4 = COALESCE(?, trailer_mp4), short_description = COALESCE(?, short_description) WHERE appid = ?')
-    .run(trailer_mp4 || null, short_description || null, appid);
+  // Always overwrite trailer_mp4 (may be 'none' sentinel); only COALESCE description
+  db.prepare('UPDATE game_metadata SET trailer_mp4 = ?, short_description = COALESCE(?, short_description) WHERE appid = ?')
+    .run(trailer_mp4 ?? null, short_description || null, appid);
 }
 
 module.exports = {

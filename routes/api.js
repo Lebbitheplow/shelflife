@@ -134,7 +134,11 @@ router.get('/trailer/:appid', async (req, res) => {
 
   const cached = db.getGameMetadata(appid);
 
-  // Only skip the API call if we already have both fields
+  // 'none' sentinel = already confirmed no trailer exists on Steam, stop re-fetching
+  if (cached?.trailer_mp4 === 'none') {
+    return res.json({ trailer_mp4: null, short_description: cached?.short_description || null });
+  }
+  // Both fields populated — return immediately
   if (cached?.trailer_mp4 && cached?.short_description) {
     return res.json({ trailer_mp4: cached.trailer_mp4, short_description: cached.short_description });
   }
@@ -144,25 +148,24 @@ router.get('/trailer/:appid', async (req, res) => {
     const r = await fetch(`https://store.steampowered.com/api/appdetails?appids=${appid}&cc=us&l=en`, {
       signal: AbortSignal.timeout(8000),
     });
-    if (!r.ok) return res.json({ trailer_mp4: cached?.trailer_mp4 || null, short_description: cached?.short_description || null });
+    if (!r.ok) return res.json({ trailer_mp4: null, short_description: cached?.short_description || null });
 
     const json = await r.json();
     const storeData = json?.[String(appid)]?.data;
-    if (!storeData) return res.json({ trailer_mp4: cached?.trailer_mp4 || null, short_description: cached?.short_description || null });
+    if (!storeData) return res.json({ trailer_mp4: null, short_description: cached?.short_description || null });
 
     const movies = storeData.movies || [];
-    let trailer_mp4 = cached?.trailer_mp4 || null;
-    if (movies.length) {
-      const movie = movies[0];
-      trailer_mp4 = movie?.hls_h264 || movie?.mp4?.['480'] || movie?.mp4?.max || trailer_mp4;
-    }
+    // Use 'none' sentinel when confirmed no trailer — prevents redundant fetches on future opens
+    let trailer_mp4 = movies.length
+      ? (movies[0]?.hls_h264 || movies[0]?.mp4?.['480'] || movies[0]?.mp4?.max || null)
+      : 'none';
     const short_description = storeData.short_description || cached?.short_description || null;
 
     if (cached) db.updateGameDetails(appid, { trailer_mp4, short_description });
 
-    res.json({ trailer_mp4, short_description });
+    res.json({ trailer_mp4: trailer_mp4 === 'none' ? null : trailer_mp4, short_description });
   } catch {
-    res.json({ trailer_mp4: cached?.trailer_mp4 || null, short_description: cached?.short_description || null });
+    res.json({ trailer_mp4: null, short_description: cached?.short_description || null });
   }
 });
 

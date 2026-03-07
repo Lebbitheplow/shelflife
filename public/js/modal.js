@@ -98,23 +98,32 @@ function openModal(game) {
 
   function loadTrailer(url) {
     if (!url) return;
+
+    function onFail() {
+      // Hide the broken player and just show the poster
+      video.classList.remove('visible');
+      if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
+    }
+
     if (url.includes('.m3u8') && typeof Hls !== 'undefined' && Hls.isSupported()) {
       hlsInstance = new Hls({ autoStartLoad: true, startLevel: -1 });
       hlsInstance.loadSource(url);
       hlsInstance.attachMedia(video);
       hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {
-        // Set muted via JS property (not HTML attribute) so the audio track is
-        // still buffered — unmuting is then instant with no stutter.
         video.muted = true;
         video.classList.add('visible');
-        video.play().catch(() => {});
+        video.play().catch(onFail);
+      });
+      hlsInstance.on(Hls.Events.ERROR, (_, data) => {
+        if (data.fatal) onFail();
       });
     } else {
       video.muted = true;
       video.src = url;
       video.classList.add('visible');
       video.load();
-      video.play().catch(() => {});
+      video.play().catch(onFail);
+      video.addEventListener('error', onFail, { once: true });
     }
   }
 
