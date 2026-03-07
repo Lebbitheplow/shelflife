@@ -15,8 +15,6 @@ COPY . .
 # Data directory is mounted as a volume at runtime
 RUN mkdir -p /app/data
 
-VOLUME ["/app/data"]
-
 EXPOSE 3233
 
 CMD ["node", "server.js"]
