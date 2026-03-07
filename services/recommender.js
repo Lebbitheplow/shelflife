@@ -233,7 +233,7 @@ function scoreGame(meta, profile, game) {
   return { score, reasons };
 }
 
-// Tiered random sample: 60% top, 30% mid, 10% lower
+// Tiered random sample: 45% top, 35% mid, 20% lower
 function tieredSample(pool, n) {
   if (pool.length <= n) return [...pool];
   const top = pool.slice(0, Math.ceil(pool.length * 0.33));
@@ -245,8 +245,8 @@ function tieredSample(pool, n) {
     return shuffled.slice(0, Math.min(count, shuffled.length));
   }
 
-  const topN = Math.ceil(n * 0.6);
-  const midN = Math.ceil(n * 0.3);
+  const topN = Math.ceil(n * 0.45);
+  const midN = Math.ceil(n * 0.35);
   const lowN = n - topN - midN;
 
   return [
@@ -331,9 +331,9 @@ function buildRecommendations(steamId, library, allMetadata, reviewedAppids = ne
   }
 
   const pools = {
-    topPicks: scored.slice(0, 150),
-    neverTouched: neverTouched.slice(0, 200),
-    almostStarted: almostStarted.slice(0, 150),
+    topPicks: scored.slice(0, 500),
+    neverTouched: neverTouched.slice(0, 500),
+    almostStarted: almostStarted.slice(0, 300),
     byGenre,
     genres: Object.keys(byGenre).sort((a, b) => genreMap[b].length - genreMap[a].length),
     stats: {
