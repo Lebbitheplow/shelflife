@@ -44,6 +44,20 @@
       <!-- Skeleton while JS loads recs -->
       <div class="section">
         <div class="section-header">
+          <h2 class="section-title">Top 20</h2>
+          <div class="section-controls">
+            <span class="page-indicator" id="page-top20">1 / 1</span>
+            <button class="carousel-btn prev" data-section="top20">❮</button>
+            <button class="carousel-btn next" data-section="top20">❯</button>
+          </div>
+        </div>
+        <div class="card-grid skeleton-grid" id="grid-top20">
+          <% for (let i = 0; i < 12; i++) { %><div class="card skeleton-card"></div><% } %>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-header">
           <h2 class="section-title">Top Picks for You</h2>
           <div class="section-controls">
             <button class="shuffle-btn" data-section="topPicks">↺</button>
@@ -136,7 +150,7 @@
     const IS_LOADING = <%= isLoading ? 'true' : 'false' %>;
   </script>
   <script src="https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js"></script>
-  <script src="/js/app.js?v=2"></script>
+  <script src="/js/app.js?v=3"></script>
   <script src="/js/modal.js?v=7"></script>
 </body>
 </html>
