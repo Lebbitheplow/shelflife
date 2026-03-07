@@ -1,0 +1,22 @@
+<nav class="nav">
+  <a class="nav-logo" href="/">
+    <svg class="nav-logo-svg" viewBox="0 0 42 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <!-- Book 1: upright, left -->
+      <rect x="4" y="8" width="5" height="16" rx="1" fill="currentColor"/>
+      <!-- Book 2: upright, next to book 1 -->
+      <rect x="10" y="11" width="4" height="13" rx="1" fill="currentColor"/>
+      <!-- Book 3: leaning/slanted against book 2 -->
+      <polygon points="15,22 15,13 19,15 19,22" fill="currentColor" opacity="0.75"/>
+      <!-- Shelf line: flatline → heartbeat pulse → flatline, then continues under books on right -->
+      <!-- The shelf line is the baseline. It runs full width, but the heartbeat lifts off it in the middle-right area -->
+      <polyline
+        points="2,24  20,24  23,24  25,18  27,28  29,14  31,24  34,24  40,24"
+        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"
+      />
+    </svg>
+    <span class="nav-logo-text">ShelfLife</span>
+  </a>
+  <% if (typeof steamId !== 'undefined' && steamId) { %>
+  <a class="nav-search-link" href="/">Search another profile</a>
+  <% } %>
+</nav>

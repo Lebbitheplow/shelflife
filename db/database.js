@@ -1,0 +1,186 @@
+const Database = require('better-sqlite3');
+const path = require('path');
+
+const DB_PATH = path.join(__dirname, '../data/shelflife.db');
+const db = new Database(DB_PATH);
+db.pragma('journal_mode = WAL');
+db.pragma('foreign_keys = ON');
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS game_metadata (
+    appid INTEGER PRIMARY KEY,
+    name TEXT,
+    short_description TEXT,
+    developers TEXT,
+    publishers TEXT,
+    genres TEXT,
+    categories TEXT,
+    tags TEXT,
+    metacritic_score INTEGER,
+    steam_positive INTEGER,
+    steam_negative INTEGER,
+    trailer_mp4 TEXT,
+    header_image TEXT,
+    release_date TEXT,
+    fetched_at INTEGER
+  );
+
+  CREATE TABLE IF NOT EXISTS user_library (
+    steam_id TEXT NOT NULL,
+    appid INTEGER NOT NULL,
+    playtime_forever INTEGER,
+    playtime_2weeks INTEGER,
+    last_played INTEGER,
+    PRIMARY KEY (steam_id, appid)
+  );
+
+  CREATE TABLE IF NOT EXISTS user_profile (
+    steam_id TEXT PRIMARY KEY,
+    display_name TEXT,
+    avatar_url TEXT,
+    fetched_at INTEGER
+  );
+
+  CREATE TABLE IF NOT EXISTS rec_cache (
+    steam_id TEXT PRIMARY KEY,
+    pools TEXT,
+    built_at INTEGER
+  );
+
+  CREATE TABLE IF NOT EXISTS load_status (
+    steam_id TEXT PRIMARY KEY,
+    status TEXT,
+    message TEXT,
+    progress INTEGER,
+    total INTEGER,
+    updated_at INTEGER
+  );
+`);
+
+// Game metadata
+function getGameMetadata(appid) {
+  return db.prepare('SELECT * FROM game_metadata WHERE appid = ?').get(appid);
+}
+
+function setGameMetadata(appid, data) {
+  db.prepare(`
+    INSERT OR REPLACE INTO game_metadata
+      (appid, name, short_description, developers, publishers, genres, categories,
+       tags, metacritic_score, steam_positive, steam_negative, trailer_mp4,
+       header_image, release_date, fetched_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    appid,
+    data.name || null,
+    data.short_description || null,
+    JSON.stringify(data.developers || []),
+    JSON.stringify(data.publishers || []),
+    JSON.stringify(data.genres || []),
+    JSON.stringify(data.categories || []),
+    JSON.stringify(data.tags || []),
+    data.metacritic_score || null,
+    data.steam_positive || null,
+    data.steam_negative || null,
+    data.trailer_mp4 || null,
+    data.header_image || null,
+    data.release_date || null,
+    Math.floor(Date.now() / 1000)
+  );
+}
+
+function getGameMetadataBatch(appids) {
+  if (!appids.length) return [];
+  const placeholders = appids.map(() => '?').join(',');
+  return db.prepare(`SELECT * FROM game_metadata WHERE appid IN (${placeholders})`).all(...appids);
+}
+
+function isMetadataFresh(appid, ttlDays = 7) {
+  const row = db.prepare('SELECT fetched_at FROM game_metadata WHERE appid = ?').get(appid);
+  if (!row) return false;
+  return (Date.now() / 1000 - row.fetched_at) < ttlDays * 86400;
+}
+
+// User library
+function getUserLibrary(steamId) {
+  return db.prepare('SELECT * FROM user_library WHERE steam_id = ?').all(steamId);
+}
+
+function setUserLibrary(steamId, games) {
+  const upsert = db.prepare(`
+    INSERT OR REPLACE INTO user_library (steam_id, appid, playtime_forever, playtime_2weeks, last_played)
+    VALUES (?, ?, ?, ?, ?)
+  `);
+  const tx = db.transaction((games) => {
+    for (const g of games) {
+      upsert.run(steamId, g.appid, g.playtime_forever || 0, g.playtime_2weeks || 0, g.rtime_last_played || null);
+    }
+  });
+  tx(games);
+}
+
+// User profile
+function getUserProfile(steamId) {
+  return db.prepare('SELECT * FROM user_profile WHERE steam_id = ?').get(steamId);
+}
+
+function setUserProfile(steamId, data) {
+  db.prepare(`
+    INSERT OR REPLACE INTO user_profile (steam_id, display_name, avatar_url, fetched_at)
+    VALUES (?, ?, ?, ?)
+  `).run(steamId, data.display_name, data.avatar_url, Math.floor(Date.now() / 1000));
+}
+
+function isProfileFresh(steamId, ttlHours = 6) {
+  const row = db.prepare('SELECT fetched_at FROM user_profile WHERE steam_id = ?').get(steamId);
+  if (!row) return false;
+  return (Date.now() / 1000 - row.fetched_at) < ttlHours * 3600;
+}
+
+// Rec cache
+function getRecCache(steamId) {
+  const row = db.prepare('SELECT * FROM rec_cache WHERE steam_id = ?').get(steamId);
+  if (!row) return null;
+  const age = Date.now() / 1000 - row.built_at;
+  if (age > 6 * 3600) return null; // 6 hour TTL
+  return JSON.parse(row.pools);
+}
+
+function setRecCache(steamId, pools) {
+  db.prepare(`
+    INSERT OR REPLACE INTO rec_cache (steam_id, pools, built_at)
+    VALUES (?, ?, ?)
+  `).run(steamId, JSON.stringify(pools), Math.floor(Date.now() / 1000));
+}
+
+function clearRecCache(steamId) {
+  db.prepare('DELETE FROM rec_cache WHERE steam_id = ?').run(steamId);
+}
+
+// Load status (for polling during cold visits)
+function getLoadStatus(steamId) {
+  return db.prepare('SELECT * FROM load_status WHERE steam_id = ?').get(steamId);
+}
+
+function setLoadStatus(steamId, status, message, progress = 0, total = 0) {
+  db.prepare(`
+    INSERT OR REPLACE INTO load_status (steam_id, status, message, progress, total, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run(steamId, status, message, progress, total, Math.floor(Date.now() / 1000));
+}
+
+function clearLoadStatus(steamId) {
+  db.prepare('DELETE FROM load_status WHERE steam_id = ?').run(steamId);
+}
+
+function updateTrailerUrl(appid, trailer_mp4) {
+  db.prepare('UPDATE game_metadata SET trailer_mp4 = ? WHERE appid = ?').run(trailer_mp4, appid);
+}
+
+module.exports = {
+  getGameMetadata, setGameMetadata, getGameMetadataBatch, isMetadataFresh,
+  getUserLibrary, setUserLibrary,
+  getUserProfile, setUserProfile, isProfileFresh,
+  getRecCache, setRecCache, clearRecCache,
+  getLoadStatus, setLoadStatus, clearLoadStatus,
+  updateTrailerUrl,
+};

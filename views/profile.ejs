@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= profile.display_name %> — ShelfLife</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="stylesheet" href="/css/style.css?v=4">
+</head>
+<body>
+  <%- include('partials/nav', { steamId }) %>
+
+  <!-- Profile header -->
+  <header class="profile-header">
+    <img class="profile-avatar" src="<%= profile.avatar_url %>" alt="">
+    <div class="profile-info">
+      <h1 class="profile-name"><%= profile.display_name %></h1>
+      <p class="profile-stats" id="profile-stats">Loading library stats...</p>
+    </div>
+  </header>
+
+  <main class="main-content" id="main-content">
+
+    <% if (isError) { %>
+    <div class="load-error">
+      <p><%= errorMessage %></p>
+      <a href="/" class="btn-primary">Try Again</a>
+    </div>
+
+    <% } else if (isLoading) { %>
+    <!-- Loading state — will poll until ready -->
+    <div class="loading-state" id="loading-state">
+      <div class="loading-spinner"></div>
+      <p class="loading-message" id="loading-message">Loading your Steam library...</p>
+      <div class="loading-bar-wrap">
+        <div class="loading-bar" id="loading-bar" style="width:0%"></div>
+      </div>
+      <p class="loading-sub">This may take a minute on your first visit.<br>Future visits will load instantly from cache.</p>
+    </div>
+
+    <% } else { %>
+    <!-- Recommendations loaded server-side on return visits — JS will hydrate -->
+    <div id="recs-container">
+      <!-- Skeleton while JS loads recs -->
+      <div class="section">
+        <div class="section-header">
+          <h2 class="section-title">Top Picks for You</h2>
+          <div class="section-controls">
+            <button class="shuffle-btn" data-section="topPicks">↺</button>
+            <span class="page-indicator" id="page-topPicks">1 / 1</span>
+            <button class="carousel-btn prev" data-section="topPicks">❮</button>
+            <button class="carousel-btn next" data-section="topPicks">❯</button>
+          </div>
+        </div>
+        <div class="card-grid skeleton-grid" id="grid-topPicks">
+          <% for (let i = 0; i < 12; i++) { %><div class="card skeleton-card"></div><% } %>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-header">
+          <h2 class="section-title">Never Touched</h2>
+          <div class="section-controls">
+            <button class="shuffle-btn" data-section="neverTouched">↺</button>
+            <span class="page-indicator" id="page-neverTouched">1 / 1</span>
+            <button class="carousel-btn prev" data-section="neverTouched">❮</button>
+            <button class="carousel-btn next" data-section="neverTouched">❯</button>
+          </div>
+        </div>
+        <div class="card-grid skeleton-grid" id="grid-neverTouched">
+          <% for (let i = 0; i < 12; i++) { %><div class="card skeleton-card"></div><% } %>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-header">
+          <h2 class="section-title">Almost Started</h2>
+          <div class="section-controls">
+            <button class="shuffle-btn" data-section="almostStarted">↺</button>
+            <span class="page-indicator" id="page-almostStarted">1 / 1</span>
+            <button class="carousel-btn prev" data-section="almostStarted">❮</button>
+            <button class="carousel-btn next" data-section="almostStarted">❯</button>
+          </div>
+        </div>
+        <div class="card-grid skeleton-grid" id="grid-almostStarted">
+          <% for (let i = 0; i < 12; i++) { %><div class="card skeleton-card"></div><% } %>
+        </div>
+      </div>
+
+      <div class="section" id="section-genre">
+        <div class="section-header">
+          <h2 class="section-title">By Genre</h2>
+          <div class="section-controls">
+            <select class="genre-select" id="genre-select"></select>
+            <button class="shuffle-btn" data-section="byGenre">↺</button>
+            <span class="page-indicator" id="page-byGenre">1 / 1</span>
+            <button class="carousel-btn prev" data-section="byGenre">❮</button>
+            <button class="carousel-btn next" data-section="byGenre">❯</button>
+          </div>
+        </div>
+        <div class="card-grid skeleton-grid" id="grid-byGenre">
+          <% for (let i = 0; i < 12; i++) { %><div class="card skeleton-card"></div><% } %>
+        </div>
+      </div>
+    </div>
+    <% } %>
+
+  </main>
+
+  <!-- Detail Modal -->
+  <div class="modal-backdrop" id="modal-backdrop" hidden>
+    <div class="modal" id="modal">
+      <button class="modal-close" id="modal-close">✕</button>
+      <div class="modal-body">
+        <div class="modal-left">
+          <img class="modal-poster" id="modal-poster" src="" alt="">
+          <video class="modal-video" id="modal-video" muted autoplay loop playsinline controls></video>
+        </div>
+        <div class="modal-right">
+          <h2 class="modal-title" id="modal-title"></h2>
+          <div class="modal-meta" id="modal-meta"></div>
+          <div class="modal-playtime" id="modal-playtime"></div>
+          <div class="modal-ratings" id="modal-ratings"></div>
+          <div class="modal-tags" id="modal-tags"></div>
+          <p class="modal-desc" id="modal-desc"></p>
+          <div class="modal-reasons" id="modal-reasons"></div>
+          <a class="modal-steam-btn" id="modal-steam-btn" href="#" target="_blank" rel="noopener">Open in Steam</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const STEAM_ID = '<%= steamId %>';
+    const IS_LOADING = <%= isLoading ? 'true' : 'false' %>;
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js"></script>
+  <script src="/js/app.js?v=1"></script>
+  <script src="/js/modal.js?v=4"></script>
+</body>
+</html>
