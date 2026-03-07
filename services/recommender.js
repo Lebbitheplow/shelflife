@@ -327,7 +327,7 @@ function buildRecommendations(steamId, library, allMetadata, reviewedAppids = ne
   }
   const byGenre = {};
   for (const [genre, games] of Object.entries(genreMap)) {
-    if (games.length >= 5) byGenre[genre] = games.slice(0, 100);
+    if (games.length >= 2) byGenre[genre] = games.slice(0, 100);
   }
 
   const pools = {
