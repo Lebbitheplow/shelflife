@@ -6,6 +6,10 @@ const db = new Database(DB_PATH);
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 
+// Migrations — add columns introduced after initial schema
+try { db.exec('ALTER TABLE game_metadata ADD COLUMN igdb_id INTEGER'); } catch {}
+try { db.exec('ALTER TABLE game_metadata ADD COLUMN igdb_collection INTEGER'); } catch {}
+
 db.exec(`
   CREATE TABLE IF NOT EXISTS game_metadata (
     appid INTEGER PRIMARY KEY,
@@ -176,6 +180,20 @@ function updateTrailerUrl(appid, trailer_mp4) {
   db.prepare('UPDATE game_metadata SET trailer_mp4 = ? WHERE appid = ?').run(trailer_mp4, appid);
 }
 
+// IGDB enrichment
+function setIgdbData(appid, { igdb_id, igdb_collection }) {
+  db.prepare('UPDATE game_metadata SET igdb_id = ?, igdb_collection = ? WHERE appid = ?')
+    .run(igdb_id ?? null, igdb_collection ?? null, appid);
+}
+
+function getUnenrichedAppids(appids) {
+  if (!appids.length) return [];
+  const placeholders = appids.map(() => '?').join(',');
+  return db.prepare(
+    `SELECT appid FROM game_metadata WHERE appid IN (${placeholders}) AND igdb_id IS NULL`
+  ).all(...appids).map(r => r.appid);
+}
+
 function updateGameDetails(appid, { trailer_mp4, short_description }) {
   // Always overwrite trailer_mp4 (may be 'none' sentinel); only COALESCE description
   db.prepare('UPDATE game_metadata SET trailer_mp4 = ?, short_description = COALESCE(?, short_description) WHERE appid = ?')
@@ -184,6 +202,7 @@ function updateGameDetails(appid, { trailer_mp4, short_description }) {
 
 module.exports = {
   getGameMetadata, setGameMetadata, getGameMetadataBatch, isMetadataFresh,
+  setIgdbData, getUnenrichedAppids,
   getUserLibrary, setUserLibrary,
   getUserProfile, setUserProfile, isProfileFresh,
   getRecCache, setRecCache, clearRecCache,
