@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ShelfLife</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="stylesheet" href="/css/style.css?v=4">
+</head>
+<body class="landing-body">
+  <%- include('partials/nav', { steamId: null }) %>
+
+  <main class="landing-main">
+    <div class="landing-hero">
+      <div class="landing-logo">
+        <svg class="landing-logo-svg" viewBox="0 0 42 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="4" y="8" width="5" height="16" rx="1" fill="currentColor"/>
+          <rect x="10" y="11" width="4" height="13" rx="1" fill="currentColor"/>
+          <polygon points="15,22 15,13 19,15 19,22" fill="currentColor" opacity="0.75"/>
+          <polyline
+            points="2,24  20,24  23,24  25,18  27,28  29,14  31,24  34,24  40,24"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"
+          />
+        </svg>
+        <span class="landing-logo-name">ShelfLife</span>
+      </div>
+      <p class="landing-tagline">Discover games you already own — but haven't played yet.</p>
+      <p class="landing-sub">Paste your Steam profile URL and get personalized picks from your own library,<br>scored by what you demonstrably love.</p>
+
+      <% if (typeof errorMsg !== 'undefined' && errorMsg) { %>
+      <div class="landing-error"><%= errorMsg %></div>
+      <% } %>
+
+      <form class="landing-form" id="search-form">
+        <input
+          class="landing-input"
+          id="profile-input"
+          type="text"
+          placeholder="https://steamcommunity.com/id/yourname"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <button class="landing-btn" type="submit">Explore My Library</button>
+      </form>
+      <p class="landing-hint">Your Steam profile must be set to <strong>Public</strong> for this to work.</p>
+    </div>
+  </main>
+
+  <script>
+    const form = document.getElementById('search-form');
+    const input = document.getElementById('profile-input');
+    const btn = form.querySelector('button');
+
+    // Pre-fill from URL param
+    const params = new URLSearchParams(location.search);
+    if (params.get('error')) {
+      document.querySelector('.landing-error') || insertError(params.get('error'));
+    }
+
+    function insertError(msg) {
+      const el = document.createElement('div');
+      el.className = 'landing-error';
+      el.textContent = msg;
+      form.before(el);
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const val = input.value.trim();
+      if (!val) return;
+
+      btn.disabled = true;
+      btn.textContent = 'Looking up profile...';
+
+      try {
+        const res = await fetch('/api/resolve', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ input: val }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          document.querySelectorAll('.landing-error').forEach(el => el.remove());
+          insertError(data.error || 'Something went wrong.');
+          btn.disabled = false;
+          btn.textContent = 'Explore My Library';
+          return;
+        }
+        window.location.href = `/profile/${data.steamId}`;
+      } catch (err) {
+        insertError('Network error. Please try again.');
+        btn.disabled = false;
+        btn.textContent = 'Explore My Library';
+      }
+    });
+  </script>
+</body>
+</html>
