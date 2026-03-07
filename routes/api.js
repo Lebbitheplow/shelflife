@@ -127,35 +127,42 @@ router.get('/shuffle/:steamId', (req, res) => {
   res.json(recommender.samplePools(cached));
 });
 
-// On-demand trailer fetch for a single game
+// On-demand detail fetch — returns trailer_mp4 + short_description for a single game
 router.get('/trailer/:appid', async (req, res) => {
   const appid = parseInt(req.params.appid);
   if (!appid) return res.status(400).json({ error: 'Invalid appid' });
 
-  // Return cached if we have it
   const cached = db.getGameMetadata(appid);
-  if (cached?.trailer_mp4) return res.json({ trailer_mp4: cached.trailer_mp4 });
 
-  // Fetch from Steam store API
+  // Only skip the API call if we already have both fields
+  if (cached?.trailer_mp4 && cached?.short_description) {
+    return res.json({ trailer_mp4: cached.trailer_mp4, short_description: cached.short_description });
+  }
+
+  // Fetch from Steam store API to fill in whatever is missing
   try {
     const r = await fetch(`https://store.steampowered.com/api/appdetails?appids=${appid}&cc=us&l=en`, {
       signal: AbortSignal.timeout(8000),
     });
-    if (!r.ok) return res.json({ trailer_mp4: null });
+    if (!r.ok) return res.json({ trailer_mp4: cached?.trailer_mp4 || null, short_description: cached?.short_description || null });
+
     const json = await r.json();
-    const movies = json?.[String(appid)]?.data?.movies || [];
-    if (!movies.length) return res.json({ trailer_mp4: null });
-    const movie = movies[0];
-    const trailer_mp4 = movie?.hls_h264 || movie?.mp4?.['480'] || movie?.mp4?.max || null;
+    const storeData = json?.[String(appid)]?.data;
+    if (!storeData) return res.json({ trailer_mp4: cached?.trailer_mp4 || null, short_description: cached?.short_description || null });
 
-    // Persist so future opens are instant
-    if (trailer_mp4 && cached) {
-      db.updateTrailerUrl(appid, trailer_mp4);
+    const movies = storeData.movies || [];
+    let trailer_mp4 = cached?.trailer_mp4 || null;
+    if (movies.length) {
+      const movie = movies[0];
+      trailer_mp4 = movie?.hls_h264 || movie?.mp4?.['480'] || movie?.mp4?.max || trailer_mp4;
     }
+    const short_description = storeData.short_description || cached?.short_description || null;
 
-    res.json({ trailer_mp4 });
+    if (cached) db.updateGameDetails(appid, { trailer_mp4, short_description });
+
+    res.json({ trailer_mp4, short_description });
   } catch {
-    res.json({ trailer_mp4: null });
+    res.json({ trailer_mp4: cached?.trailer_mp4 || null, short_description: cached?.short_description || null });
   }
 });
 

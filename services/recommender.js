@@ -305,11 +305,24 @@ function buildRecommendations(steamId, library, allMetadata, reviewedAppids = ne
   const neverTouched = scored.filter(g => g.playtime === 0);
   const almostStarted = scored.filter(g => g.playtime > 0 && g.playtime < ALMOST_STARTED_MAX);
 
+  // Gameplay-relevant Steam categories to surface in the genre dropdown
+  const CATEGORY_ALLOWLIST = new Set([
+    'Single-player', 'Multi-player', 'Co-op', 'Online Co-op', 'Local Co-op',
+    'PvP', 'Online PvP', 'Local Multi-Player', 'Shared/Split Screen',
+    'Shared/Split Screen Co-op', 'Shared/Split Screen PvP',
+    'Cross-Platform Multiplayer', 'MMO',
+  ]);
+
   const genreMap = {};
   for (const g of scored) {
     for (const genre of g.genres) {
       if (!genreMap[genre]) genreMap[genre] = [];
       genreMap[genre].push(g);
+    }
+    for (const cat of g.categories) {
+      if (!CATEGORY_ALLOWLIST.has(cat)) continue;
+      if (!genreMap[cat]) genreMap[cat] = [];
+      genreMap[cat].push(g);
     }
   }
   const byGenre = {};
