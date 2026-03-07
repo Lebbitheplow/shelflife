@@ -1,10 +1,19 @@
 # ShelfLife
 
-Discover games you already own — but haven't played yet.
+<p align="center">
+  <img src="public/favicon.svg" width="48" alt="ShelfLife logo" /><br/>
+  <strong>Discover games you already own — but haven't played yet.</strong>
+</p>
 
 ShelfLife connects to your Steam library and surfaces personalized picks from your backlog, scored by what you demonstrably love. No ads, no recommendations to buy new games — just your shelf, filtered by taste.
 
-![ShelfLife screenshot](https://raw.githubusercontent.com/Lebbitheplow/shelflife/master/docs/screenshot.png)
+### Home
+
+![ShelfLife home page](docs/screenshot-home.png)
+
+### Profile
+
+![ShelfLife recommendations page](docs/screenshot-profile.png)
 
 ## Features
 
