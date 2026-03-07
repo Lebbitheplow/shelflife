@@ -242,6 +242,7 @@ a:hover { color: var(--accent-hover); }
   flex-shrink: 0;
 }
 .modal-video.visible { display: block; }
+iframe.modal-video { border: none; }
 
 .modal-right { padding: 24px; overflow-y: auto; }
 .modal-title { font-size: 1.3rem; font-weight: 800; margin-bottom: 6px; line-height: 1.3; }

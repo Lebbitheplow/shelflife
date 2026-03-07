@@ -294,7 +294,7 @@ function buildRecommendations(steamId, library, allMetadata, reviewedAppids = ne
       metacritic_score: meta.metacritic_score,
       steam_positive: meta.steam_positive,
       steam_negative: meta.steam_negative,
-      trailer_mp4: meta.trailer_mp4,
+      trailer_mp4: meta.trailer_mp4 === 'none' ? null : meta.trailer_mp4,
       short_description: meta.short_description,
       release_date: meta.release_date,
     });

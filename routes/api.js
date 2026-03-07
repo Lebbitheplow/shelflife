@@ -4,6 +4,24 @@ const db = require('../db/database');
 const steamService = require('../services/steam');
 const recommender = require('../services/recommender');
 
+// Search YouTube for a game trailer — returns 'yt:VIDEO_ID' or null
+// All API calls are server-side; the key is never sent to the browser
+async function searchYouTubeTrailer(gameName) {
+  const key = process.env.YOUTUBE_API_KEY;
+  if (!key || !gameName) return null;
+  try {
+    const q = encodeURIComponent(`${gameName} official trailer`);
+    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${q}&type=video&maxResults=1&videoEmbeddable=true&key=${key}`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+    if (!res.ok) return null;
+    const json = await res.json();
+    const videoId = json.items?.[0]?.id?.videoId;
+    return videoId ? `yt:${videoId}` : null;
+  } catch {
+    return null;
+  }
+}
+
 // In-flight load jobs — prevents duplicate background fetches
 const loadingJobs = new Map();
 
@@ -155,11 +173,16 @@ router.get('/trailer/:appid', async (req, res) => {
     if (!storeData) return res.json({ trailer_mp4: null, short_description: cached?.short_description || null });
 
     const movies = storeData.movies || [];
-    // Use 'none' sentinel when confirmed no trailer — prevents redundant fetches on future opens
     let trailer_mp4 = movies.length
       ? (movies[0]?.hls_h264 || movies[0]?.mp4?.['480'] || movies[0]?.mp4?.max || null)
-      : 'none';
+      : null;
     const short_description = storeData.short_description || cached?.short_description || null;
+
+    // No Steam trailer — try YouTube as fallback
+    if (!trailer_mp4) {
+      const gameName = storeData.name || cached?.name || null;
+      trailer_mp4 = await searchYouTubeTrailer(gameName) || 'none';
+    }
 
     if (cached) db.updateGameDetails(appid, { trailer_mp4, short_description });
 
