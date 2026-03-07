@@ -114,7 +114,8 @@
       <div class="modal-body">
         <div class="modal-left">
           <img class="modal-poster" id="modal-poster" src="" alt="">
-          <video class="modal-video" id="modal-video" muted autoplay loop playsinline controls></video>
+          <video class="modal-video" id="modal-video" muted loop playsinline controls></video>
+          <iframe class="modal-video" id="modal-yt" allow="autoplay; encrypted-media" allowfullscreen></iframe>
         </div>
         <div class="modal-right">
           <h2 class="modal-title" id="modal-title"></h2>
@@ -135,7 +136,7 @@
     const IS_LOADING = <%= isLoading ? 'true' : 'false' %>;
   </script>
   <script src="https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js"></script>
-  <script src="/js/app.js?v=1"></script>
-  <script src="/js/modal.js?v=4"></script>
+  <script src="/js/app.js?v=2"></script>
+  <script src="/js/modal.js?v=5"></script>
 </body>
 </html>

@@ -84,23 +84,34 @@ function openModal(game) {
   // Steam link
   document.getElementById('modal-steam-btn').href = `https://store.steampowered.com/app/${game.appid}`;
 
-  // Media — poster always on top, video appears below when available
+  // Media — poster always on top, video/iframe appears below when available
   const video = document.getElementById('modal-video');
+  const ytFrame = document.getElementById('modal-yt');
   const poster = document.getElementById('modal-poster');
 
-  // Tear down any previous HLS instance
+  // Tear down any previous HLS instance or YouTube iframe
   if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
-  video.src = '';
+  video.removeAttribute('src');
+  video.load();
   video.classList.remove('visible');
+  ytFrame.removeAttribute('src');
+  ytFrame.classList.remove('visible');
 
   // Poster always visible
   poster.src = game.header_image || `https://cdn.akamai.steamstatic.com/steam/apps/${game.appid}/header.jpg`;
 
   function loadTrailer(url) {
-    if (!url) return;
+    if (!url || url === 'none') return;
+
+    // YouTube fallback — render in iframe, API key stays server-side
+    if (url.startsWith('yt:')) {
+      const videoId = url.slice(3);
+      ytFrame.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&loop=1&playlist=${videoId}&rel=0`;
+      ytFrame.classList.add('visible');
+      return;
+    }
 
     function onFail() {
-      // Hide the broken player and just show the poster
       video.classList.remove('visible');
       if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
     }
@@ -156,10 +167,14 @@ function closeModal() {
   document.body.style.overflow = '';
   const video = document.getElementById('modal-video');
   video.pause();
-  video.src = '';
+  video.removeAttribute('src');
+  video.load();
   video.muted = true;
   video.classList.remove('visible');
   if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
+  const ytFrame = document.getElementById('modal-yt');
+  ytFrame.removeAttribute('src');
+  ytFrame.classList.remove('visible');
 }
 
 document.getElementById('modal-close').addEventListener('click', closeModal);
