@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require('../db/database');
 const steamService = require('../services/steam');
 const recommender = require('../services/recommender');
+const igdb = require('../services/igdb');
 
 // Search YouTube for a game trailer — returns 'yt:VIDEO_ID' or null
 // All API calls are server-side; the key is never sent to the browser
@@ -63,6 +64,9 @@ async function runLoadJob(steamId) {
 
     db.setLoadStatus(steamId, 'loading', 'Fetching your Steam reviews...', ordered.length, ordered.length);
     const reviewedAppids = await steamService.getPositiveReviews(steamId);
+
+    db.setLoadStatus(steamId, 'loading', 'Looking up game series data...', ordered.length, ordered.length);
+    await igdb.enrichLibrary(ordered);
 
     db.setLoadStatus(steamId, 'loading', 'Building recommendations...', ordered.length, ordered.length);
 

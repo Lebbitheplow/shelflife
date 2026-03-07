@@ -6,36 +6,6 @@ function parseJSON(str, fallback = []) {
   try { return JSON.parse(str); } catch { return fallback; }
 }
 
-// Words too generic to use for franchise/title matching
-const STOP_WORDS = new Set([
-  'the','a','an','of','in','on','at','to','and','or','for','with',
-  'is','are','was','were','be','been','being','have','has','had',
-  'do','does','did','will','would','could','should','may','might',
-  'i','ii','iii','iv','v','vi','vii','viii','ix','x',
-  'edition','definitive','complete','remastered','deluxe','ultimate',
-  'director','cut','enhanced','goty','anniversary','classic','gold',
-  'premium','special','extended','expanded','redux','renewal','remake',
-  'game','games','series','collection','pack','bundle','ep','chapter',
-]);
-
-function titleWords(name) {
-  return name.toLowerCase()
-    .replace(/[:\-–—™®©]/g, ' ')
-    .split(/\s+/)
-    .filter(w => w.length > 2 && !STOP_WORDS.has(w));
-}
-
-// Build franchise key words from a game name (at least 2 significant words)
-function franchiseKeywords(name) {
-  return titleWords(name).slice(0, 3); // first 3 meaningful words
-}
-
-// How many significant title words do two games share?
-function titleOverlap(nameA, nameB) {
-  const wordsA = new Set(titleWords(nameA));
-  const wordsB = titleWords(nameB);
-  return wordsB.filter(w => wordsA.has(w)).length;
-}
 
 // Build a weighted preference profile from the user's played games
 // Also tracks, per-tag and per-dev, which specific game contributed most (for reason attribution)
@@ -121,71 +91,23 @@ function scoreGame(meta, profile, game) {
   const cats = parseJSON(meta.categories);
   const candidateName = meta.name || '';
 
-  // ── Franchise / series detection ──────────────────────────────────────
-  // Rules:
-  //   overlap >= 2                          → franchise bonus (strong signal)
-  //   overlap == 1 + same developer         → franchise bonus (dev confirms series)
-  //   overlap == 1 + 2+ shared tags         → reduced bonus (tag similarity validates)
-  //   overlap == 1, no dev, <2 shared tags  → no bonus (too weak)
-  const candidateTags = new Set(tags);
-  const candidateDevs = new Set(devs);
-
-  let bestFranchiseMatch = null;
-  let bestFranchiseOverlap = 0;
-  let bestFranchiseBonus = 0;
-
-  for (const lovedGame of profile.lovedGames) {
-    if (lovedGame.appid === game?.appid) continue; // skip self
-    const lovedMeta = profile._metadataMap?.[lovedGame.appid];
-    const lovedName = lovedMeta?.name || lovedGame._name || '';
-    if (!lovedName) continue;
-
-    // Skip near-identical names (same game, different edition/appid)
-    const candidateWords = titleWords(candidateName);
-    const lovedWordSet = new Set(titleWords(lovedName));
-    const matchRatio = candidateWords.length > 0
-      ? candidateWords.filter(w => lovedWordSet.has(w)).length / candidateWords.length
-      : 0;
-    if (matchRatio >= 0.85) continue;
-
-    const overlap = titleOverlap(candidateName, lovedName);
-    if (overlap < 1) continue;
-
-    let bonus = 0;
-    if (overlap >= 2) {
-      // Strong: 2+ shared meaningful title words
-      bonus = 30;
-    } else {
-      // overlap == 1 — need corroborating signal
-      const lovedDevs = parseJSON(lovedMeta?.developers || '[]');
-      const sharedDev = lovedDevs.some(d => candidateDevs.has(d));
-      const lovedTags = parseJSON(lovedMeta?.tags || '[]');
-      const sharedTagCount = lovedTags.filter(t => candidateTags.has(t)).length;
-
-      if (sharedDev) {
-        bonus = 15; // same developer confirms same series
-      } else if (sharedTagCount >= 2) {
-        bonus = 8;  // tag overlap suggests same genre at least
-      }
-      // else: single word, different dev, different tags → skip
+  // ── Franchise / series detection via IGDB collection ─────────────────
+  const candidateCollection = meta.igdb_collection;
+  if (candidateCollection) {
+    for (const lovedGame of profile.lovedGames) {
+      if (lovedGame.appid === game?.appid) continue;
+      const lovedMeta = profile._metadataMap?.[lovedGame.appid];
+      if (!lovedMeta || lovedMeta.igdb_collection !== candidateCollection) continue;
+      const hrs = Math.round(lovedGame.playtime_forever / 60);
+      score += 30;
+      reasonCandidates.push({
+        text: hrs >= 5
+          ? `You put ${hrs}h into ${lovedMeta.name}`
+          : `In the ${lovedMeta.name} series`,
+        priority: 10,
+      });
+      break;
     }
-
-    if (bonus > 0 && overlap > bestFranchiseOverlap) {
-      bestFranchiseOverlap = overlap;
-      bestFranchiseBonus = bonus;
-      bestFranchiseMatch = { name: lovedName, overlap, playtime: lovedGame.playtime_forever };
-    }
-  }
-
-  if (bestFranchiseMatch) {
-    score += bestFranchiseBonus;
-    const hrs = Math.round(bestFranchiseMatch.playtime / 60);
-    reasonCandidates.push({
-      text: hrs >= 5
-        ? `You put ${hrs}h into ${bestFranchiseMatch.name}`
-        : `In the ${bestFranchiseMatch.name} series`,
-      priority: bestFranchiseOverlap >= 2 ? 10 : 7,
-    });
   }
 
   // ── Developer familiarity ──────────────────────────────────────────────
@@ -206,22 +128,59 @@ function scoreGame(meta, profile, game) {
   score += Math.min(devScore, 15);
 
   // ── Tag overlap ────────────────────────────────────────────────────────
+  // ── Tag overlap score (profile-weighted) ──────────────────────────────
   let tagScore = 0;
   let bestTagW = 0;
-  let bestTagReason = null;
+  let bestTag = null;
   for (const tag of tags) {
     const w = profile.tags[tag] || 0;
     tagScore += w * 4;
-    if (w > bestTagW) {
-      bestTagW = w;
-      const seed = profile.tagSeed[tag];
-      bestTagReason = seed && w > 0.55
-        ? `Because you loved ${seed.name}`
-        : null;
-    }
+    if (w > bestTagW) { bestTagW = w; bestTag = tag; }
   }
   score += Math.min(tagScore, 40);
-  if (bestTagReason) reasonCandidates.push({ text: bestTagReason, priority: bestTagW * 6 });
+
+  // ── Specific game similarity (Jaccard tag overlap with loved games) ────
+  // Find the loved game most similar to this candidate by shared tags.
+  // Requires 4+ shared tags so generic overlap (RPG, Action) doesn't trigger it.
+  const candidateTagSet = new Set(tags);
+  let bestSimilarGame = null;
+  let bestSimilarity = 0;
+  let bestSimilarPlaytime = 0;
+
+  for (const lovedGame of profile.lovedGames) {
+    if (lovedGame.appid === game?.appid) continue;
+    const lovedMeta = profile._metadataMap?.[lovedGame.appid];
+    if (!lovedMeta) continue;
+    const lovedTags = parseJSON(lovedMeta.tags || '[]');
+    if (!lovedTags.length) continue;
+
+    const sharedCount = lovedTags.filter(t => candidateTagSet.has(t)).length;
+    if (sharedCount < 4) continue; // require meaningful overlap
+
+    const union = new Set([...tags, ...lovedTags]).size;
+    const jaccard = union > 0 ? sharedCount / union : 0;
+
+    // Tiebreak by playtime — prefer the game the user played most
+    const score_sim = jaccard + lovedGame.playtime_forever / 1_000_000;
+    if (score_sim > bestSimilarity) {
+      bestSimilarity = score_sim;
+      bestSimilarGame = lovedMeta;
+      bestSimilarPlaytime = lovedGame.playtime_forever;
+    }
+  }
+
+  if (bestSimilarGame && bestSimilarity >= 0.25) {
+    const hrs = Math.round(bestSimilarPlaytime / 60);
+    reasonCandidates.push({
+      text: hrs >= 5
+        ? `You put ${hrs}h into ${bestSimilarGame.name}`
+        : `Similar to ${bestSimilarGame.name}`,
+      priority: bestSimilarity * 10,
+    });
+  } else if (bestTag && bestTagW > 0.4) {
+    // Fall back to generic tag reason if no strong game match
+    reasonCandidates.push({ text: `Matches your ${bestTag} taste`, priority: bestTagW * 3 });
+  }
 
   // ── Genre match ────────────────────────────────────────────────────────
   let genreScore = 0;
