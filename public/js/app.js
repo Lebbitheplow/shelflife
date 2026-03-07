@@ -10,6 +10,7 @@ const PAGE_SIZE = () => COLS_PER_ROW() * ROWS;
 const state = {
   data: null,
   pages: {
+    top20: 0,
     topPicks: 0,
     neverTouched: 0,
     almostStarted: 0,
@@ -161,7 +162,7 @@ function hydrateAll() {
     });
   }
 
-  ['topPicks', 'neverTouched', 'almostStarted', 'byGenre'].forEach(key => {
+  ['top20', 'topPicks', 'neverTouched', 'almostStarted', 'byGenre'].forEach(key => {
     renderSection(key, getGamesForSection(key), 0);
   });
 }

@@ -331,6 +331,7 @@ function buildRecommendations(steamId, library, allMetadata, reviewedAppids = ne
   }
 
   const pools = {
+    top20: scored.slice(0, 20),
     topPicks: scored.slice(0, 500),
     neverTouched: neverTouched.slice(0, 500),
     almostStarted: almostStarted.slice(0, 300),
@@ -349,6 +350,7 @@ function buildRecommendations(steamId, library, allMetadata, reviewedAppids = ne
 
 function samplePools(pools) {
   return {
+    top20: pools.top20,
     topPicks: tieredSample(pools.topPicks, 72),
     neverTouched: tieredSample(pools.neverTouched, 60),
     almostStarted: tieredSample(pools.almostStarted, 60),
