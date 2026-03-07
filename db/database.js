@@ -176,11 +176,16 @@ function updateTrailerUrl(appid, trailer_mp4) {
   db.prepare('UPDATE game_metadata SET trailer_mp4 = ? WHERE appid = ?').run(trailer_mp4, appid);
 }
 
+function updateGameDetails(appid, { trailer_mp4, short_description }) {
+  db.prepare('UPDATE game_metadata SET trailer_mp4 = COALESCE(?, trailer_mp4), short_description = COALESCE(?, short_description) WHERE appid = ?')
+    .run(trailer_mp4 || null, short_description || null, appid);
+}
+
 module.exports = {
   getGameMetadata, setGameMetadata, getGameMetadataBatch, isMetadataFresh,
   getUserLibrary, setUserLibrary,
   getUserProfile, setUserProfile, isProfileFresh,
   getRecCache, setRecCache, clearRecCache,
   getLoadStatus, setLoadStatus, clearLoadStatus,
-  updateTrailerUrl,
+  updateTrailerUrl, updateGameDetails,
 };

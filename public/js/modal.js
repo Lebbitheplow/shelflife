@@ -103,10 +103,14 @@ function openModal(game) {
       hlsInstance.loadSource(url);
       hlsInstance.attachMedia(video);
       hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {
+        // Set muted via JS property (not HTML attribute) so the audio track is
+        // still buffered — unmuting is then instant with no stutter.
+        video.muted = true;
         video.classList.add('visible');
         video.play().catch(() => {});
       });
     } else {
+      video.muted = true;
       video.src = url;
       video.classList.add('visible');
       video.load();
@@ -114,15 +118,21 @@ function openModal(game) {
     }
   }
 
-  if (game.trailer_mp4) {
+  const needsTrailer = !game.trailer_mp4;
+  const needsDesc = !game.short_description;
+
+  if (!needsTrailer && !needsDesc) {
     loadTrailer(game.trailer_mp4);
   } else {
     fetch(`/api/trailer/${game.appid}`)
       .then(r => r.json())
       .then(data => {
-        if (data.trailer_mp4 && !backdrop.hidden) {
-          game.trailer_mp4 = data.trailer_mp4;
-          loadTrailer(data.trailer_mp4);
+        if (!backdrop.hidden) {
+          if (data.trailer_mp4) { game.trailer_mp4 = data.trailer_mp4; loadTrailer(data.trailer_mp4); }
+          if (data.short_description) {
+            game.short_description = data.short_description;
+            document.getElementById('modal-desc').textContent = data.short_description;
+          }
         }
       })
       .catch(() => {});
@@ -138,6 +148,7 @@ function closeModal() {
   const video = document.getElementById('modal-video');
   video.pause();
   video.src = '';
+  video.muted = true;
   video.classList.remove('visible');
   if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
 }
