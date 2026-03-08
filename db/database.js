@@ -114,12 +114,16 @@ function setUserLibrary(steamId, games) {
     INSERT OR REPLACE INTO user_library (steam_id, appid, playtime_forever, playtime_2weeks, last_played)
     VALUES (?, ?, ?, ?, ?)
   `);
-  const tx = db.transaction((games) => {
+  db.exec('BEGIN');
+  try {
     for (const g of games) {
       upsert.run(steamId, g.appid, g.playtime_forever || 0, g.playtime_2weeks || 0, g.rtime_last_played || null);
     }
-  });
-  tx(games);
+    db.exec('COMMIT');
+  } catch (err) {
+    db.exec('ROLLBACK');
+    throw err;
+  }
 }
 
 // User profile
