@@ -27,9 +27,9 @@ ShelfLife connects to your Steam library and surfaces personalized picks from yo
 
 ## Tech Stack
 
-- **Runtime**: Node.js 20
+- **Runtime**: Node.js 23
 - **Framework**: Express + EJS
-- **Database**: SQLite via better-sqlite3 (metadata cache, library cache, rec cache)
+- **Database**: SQLite via Node.js built-in `node:sqlite` (metadata cache, library cache, rec cache)
 - **APIs**: Steam Web API, SteamSpy, Steam Store appdetails, YouTube Data API v3
 - **Video**: HLS.js for Steam HLS trailers; YouTube iframe embed as fallback for games with no Steam trailer
 - **Auth**: Session-based (no login required — just paste your Steam profile URL)
@@ -38,7 +38,7 @@ ShelfLife connects to your Steam library and surfaces personalized picks from yo
 
 ### Prerequisites
 
-- Node.js 20+
+- Node.js >= 23.4.0
 - A [Steam Web API key](https://steamcommunity.com/dev/apikey)
 - A [YouTube Data API v3 key](https://console.cloud.google.com/) (optional but recommended — used as a trailer fallback for older games that Steam has no trailer for)
 
@@ -72,17 +72,26 @@ npm run dev
 
 Then visit `http://localhost:3233` and paste your Steam profile URL.
 
-### Docker
+### Docker (recommended)
 
 ```bash
-# Build and start
-docker compose up -d
+# 1. Download the compose file
+curl -o docker-compose.yml https://raw.githubusercontent.com/Lebbitheplow/shelflife/master/docker-compose.yml
 
-# Or pull a pre-built image (edit docker-compose.yml to use image: instead of build:)
+# 2. Edit the environment variables
+nano docker-compose.yml
+
+# 3. Start
 docker compose up -d
 ```
 
-Edit `docker-compose.yml` with your API keys before starting. The `data/` directory is mounted as a volume so your cache persists across container restarts.
+The `data/` directory is mounted as a volume so your cache persists across container restarts.
+
+#### Updating
+
+```bash
+docker compose pull && docker compose up -d
+```
 
 ## How It Works
 
