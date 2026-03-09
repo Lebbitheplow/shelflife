@@ -1,8 +1,6 @@
 services:
   shelflife:
-    build: .
-    # Alternatively, pull a pre-built image:
-    # image: ghcr.io/lebbitheplow/shelflife:latest
+    image: lebbi/shelflife:latest
     container_name: shelflife
     restart: unless-stopped
     ports:
