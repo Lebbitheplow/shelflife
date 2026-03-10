@@ -1,5 +1,28 @@
 /* ShelfLife — profile page carousels, loading poll, shuffle */
 
+function makeScrollTag(text, outerClass) {
+  const tag = document.createElement('span');
+  tag.className = outerClass;
+  const inner = document.createElement('span');
+  inner.className = 'scroll-inner';
+  inner.textContent = text;
+  tag.appendChild(inner);
+  setTimeout(function () {
+    const cs = getComputedStyle(tag);
+    const tagExtra = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight) +
+                     parseFloat(cs.borderLeftWidth) + parseFloat(cs.borderRightWidth);
+    const overflow = inner.getBoundingClientRect().width - (tag.getBoundingClientRect().width - tagExtra);
+    if (overflow > 1) {
+      const dist = Math.ceil(overflow) + 6;
+      const dur = Math.max(3, (dist / 40 + 2)).toFixed(1) + 's';
+      tag.style.setProperty('--tag-scroll-dist', '-' + dist + 'px');
+      tag.style.setProperty('--tag-scroll-duration', dur);
+      tag.classList.add('scroll-active');
+    }
+  }, 50);
+  return tag;
+}
+
 const COLS_PER_ROW = () => {
   const gridW = document.querySelector('.card-grid')?.offsetWidth || window.innerWidth - 48;
   return Math.max(1, Math.floor(gridW / (180 + 12)));
@@ -55,10 +78,7 @@ function renderCard(game) {
   badges.appendChild(ptBadge);
 
   if (game.reasons?.[0]) {
-    const r = document.createElement('span');
-    r.className = 'badge badge-reason';
-    r.textContent = game.reasons[0];
-    badges.appendChild(r);
+    badges.appendChild(makeScrollTag(game.reasons[0], 'badge badge-reason'));
   }
 
   body.appendChild(title);

@@ -65,14 +65,18 @@ async function fetchAppDetails(appid) {
 
     let storeData = null;
     if (storeRes.status === 'fulfilled' && storeRes.value.ok) {
-      const json = await storeRes.value.json();
-      const entry = json?.[String(appid)];
-      if (entry?.success) storeData = entry.data;
+      try {
+        const json = await storeRes.value.json();
+        const entry = json?.[String(appid)];
+        if (entry?.success) storeData = entry.data;
+      } catch { /* non-JSON response from Steam (e.g. "Connection timed out") */ }
     }
 
     let spyData = null;
     if (spyRes.status === 'fulfilled' && spyRes.value.ok) {
-      spyData = await spyRes.value.json();
+      try {
+        spyData = await spyRes.value.json();
+      } catch { /* non-JSON response from SteamSpy */ }
     }
 
     if (!storeData && !spyData) return null;
@@ -185,4 +189,21 @@ async function getPositiveReviews(steamId) {
   return appids;
 }
 
-module.exports = { resolveToSteamId, getPlayerSummary, getOwnedGames, fetchAppDetails, fetchMetadataBatch, getPositiveReviews };
+// Fetch achievement progress for a single game — returns { total, unlocked } or null
+async function getPlayerAchievements(steamId, appid) {
+  try {
+    const url = `${STEAM_API}/ISteamUserStats/GetPlayerAchievements/v1/?key=${STEAM_API_KEY()}&steamid=${steamId}&appid=${appid}`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+    if (!res.ok) return null;
+    const json = await res.json();
+    const achievements = json.playerstats?.achievements;
+    if (!achievements) return { total: 0, unlocked: 0 }; // game has no achievements schema
+    const total = achievements.length;
+    const unlocked = achievements.filter(a => a.achieved === 1).length;
+    return { total, unlocked };
+  } catch {
+    return null;
+  }
+}
+
+module.exports = { resolveToSteamId, getPlayerSummary, getOwnedGames, fetchAppDetails, fetchMetadataBatch, getPositiveReviews, getPlayerAchievements };

@@ -75,10 +75,7 @@ function openModal(game) {
   const reasonsEl = document.getElementById('modal-reasons');
   reasonsEl.innerHTML = '';
   for (const r of (game.reasons || [])) {
-    const el = document.createElement('span');
-    el.className = 'reason-chip';
-    el.textContent = r;
-    reasonsEl.appendChild(el);
+    reasonsEl.appendChild(makeScrollTag(r, 'reason-chip'));
   }
 
   // Steam link
