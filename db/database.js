@@ -105,8 +105,14 @@ function setGameMetadata(appid, data) {
 
 function getGameMetadataBatch(appids) {
   if (!appids.length) return [];
-  const placeholders = appids.map(() => '?').join(',');
-  return db.prepare(`SELECT * FROM game_metadata WHERE appid IN (${placeholders})`).all(...appids);
+  const CHUNK = 500; // stay under SQLite's 999-variable limit
+  const results = [];
+  for (let i = 0; i < appids.length; i += CHUNK) {
+    const chunk = appids.slice(i, i + CHUNK);
+    const placeholders = chunk.map(() => '?').join(',');
+    results.push(...db.prepare(`SELECT * FROM game_metadata WHERE appid IN (${placeholders})`).all(...chunk));
+  }
+  return results;
 }
 
 function isMetadataFresh(appid, ttlDays = 7) {
@@ -203,10 +209,16 @@ function setIgdbData(appid, { igdb_id, igdb_collection }) {
 
 function getUnenrichedAppids(appids) {
   if (!appids.length) return [];
-  const placeholders = appids.map(() => '?').join(',');
-  return db.prepare(
-    `SELECT appid FROM game_metadata WHERE appid IN (${placeholders}) AND igdb_id IS NULL`
-  ).all(...appids).map(r => r.appid);
+  const CHUNK = 500;
+  const results = [];
+  for (let i = 0; i < appids.length; i += CHUNK) {
+    const chunk = appids.slice(i, i + CHUNK);
+    const placeholders = chunk.map(() => '?').join(',');
+    results.push(...db.prepare(
+      `SELECT appid FROM game_metadata WHERE appid IN (${placeholders}) AND igdb_id IS NULL`
+    ).all(...chunk).map(r => r.appid));
+  }
+  return results;
 }
 
 function updateGameDetails(appid, { trailer_mp4, short_description }) {
