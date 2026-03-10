@@ -57,6 +57,17 @@ db.exec(`
   );
 `);
 
+db.exec(`
+  CREATE TABLE IF NOT EXISTS user_achievements (
+    steam_id TEXT NOT NULL,
+    appid INTEGER NOT NULL,
+    total INTEGER NOT NULL,
+    unlocked INTEGER NOT NULL,
+    fetched_at INTEGER NOT NULL,
+    PRIMARY KEY (steam_id, appid)
+  );
+`);
+
 // Migrations — must run after CREATE TABLE so they work on both fresh and existing DBs
 try { db.exec('ALTER TABLE game_metadata ADD COLUMN igdb_id INTEGER'); } catch {}
 try { db.exec('ALTER TABLE game_metadata ADD COLUMN igdb_collection INTEGER'); } catch {}
@@ -204,6 +215,27 @@ function updateGameDetails(appid, { trailer_mp4, short_description }) {
     .run(trailer_mp4 ?? null, short_description || null, appid);
 }
 
+// User achievements
+function setAchievements(steamId, appid, total, unlocked) {
+  db.prepare(`
+    INSERT OR REPLACE INTO user_achievements (steam_id, appid, total, unlocked, fetched_at)
+    VALUES (?, ?, ?, ?, ?)
+  `).run(steamId, appid, total, unlocked, Math.floor(Date.now() / 1000));
+}
+
+function getAchievements(steamId) {
+  const rows = db.prepare('SELECT appid, total, unlocked FROM user_achievements WHERE steam_id = ?').all(steamId);
+  const map = {};
+  for (const r of rows) map[r.appid] = { total: r.total, unlocked: r.unlocked };
+  return map;
+}
+
+function isAchievementFresh(steamId, appid, ttlDays = 7) {
+  const row = db.prepare('SELECT fetched_at FROM user_achievements WHERE steam_id = ? AND appid = ?').get(steamId, appid);
+  if (!row) return false;
+  return (Date.now() / 1000 - row.fetched_at) < ttlDays * 86400;
+}
+
 module.exports = {
   getGameMetadata, setGameMetadata, getGameMetadataBatch, isMetadataFresh,
   setIgdbData, getUnenrichedAppids,
@@ -212,4 +244,5 @@ module.exports = {
   getRecCache, setRecCache, clearRecCache,
   getLoadStatus, setLoadStatus, clearLoadStatus,
   updateTrailerUrl, updateGameDetails,
+  setAchievements, getAchievements, isAchievementFresh,
 };

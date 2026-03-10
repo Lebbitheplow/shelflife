@@ -68,10 +68,35 @@ async function runLoadJob(steamId) {
     db.setLoadStatus(steamId, 'loading', 'Looking up game series data...', ordered.length, ordered.length);
     await igdb.enrichLibrary(ordered);
 
+    // Fetch achievement data for games the user has seriously played (10+ hours, top 50)
+    const ACHIEVEMENT_MIN_MINUTES = 600; // 10 hours
+    const ACHIEVEMENT_CAP = 50;
+    const achievementCandidates = library
+      .filter(g => g.playtime_forever >= ACHIEVEMENT_MIN_MINUTES)
+      .sort((a, b) => b.playtime_forever - a.playtime_forever)
+      .slice(0, ACHIEVEMENT_CAP);
+
+    if (achievementCandidates.length) {
+      db.setLoadStatus(steamId, 'loading', `Fetching achievement data (0 / ${achievementCandidates.length})...`, 0, achievementCandidates.length);
+      let achCount = 0;
+      for (const game of achievementCandidates) {
+        if (!db.isAchievementFresh(steamId, game.appid)) {
+          const result = await steamService.getPlayerAchievements(steamId, game.appid);
+          if (result) db.setAchievements(steamId, game.appid, result.total, result.unlocked);
+          await new Promise(r => setTimeout(r, 150)); // gentle rate limiting
+        }
+        achCount++;
+        if (achCount % 10 === 0) {
+          db.setLoadStatus(steamId, 'loading', `Fetching achievement data (${achCount} / ${achievementCandidates.length})...`, achCount, achievementCandidates.length);
+        }
+      }
+    }
+
     db.setLoadStatus(steamId, 'loading', 'Building recommendations...', ordered.length, ordered.length);
 
     const libRows = db.getUserLibrary(steamId);
-    recommender.buildRecommendations(steamId, libRows, fetched, reviewedAppids);
+    const achievementMap = db.getAchievements(steamId);
+    recommender.buildRecommendations(steamId, libRows, fetched, reviewedAppids, achievementMap);
 
     db.setLoadStatus(steamId, 'done', 'Ready', ordered.length, ordered.length);
   } catch (err) {

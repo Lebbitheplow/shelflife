@@ -9,7 +9,7 @@ function parseJSON(str, fallback = []) {
 
 // Build a weighted preference profile from the user's played games
 // Also tracks, per-tag and per-dev, which specific game contributed most (for reason attribution)
-function buildPreferenceProfile(library, metadataMap, reviewedAppids = new Set()) {
+function buildPreferenceProfile(library, metadataMap, reviewedAppids = new Set(), achievementMap = {}) {
   const tagWeights = {};
   const genreWeights = {};
   const devWeights = {};
@@ -30,11 +30,21 @@ function buildPreferenceProfile(library, metadataMap, reviewedAppids = new Set()
     const meta = metadataMap[game.appid];
     if (!meta || !meta.name) continue;
 
-    let weight = game.playtime_forever;
+    let weight = Math.sqrt(game.playtime_forever);
     if (recentlyPlayed.has(game.appid)) weight *= 1.5;
     if (top30.has(game.appid)) weight *= 1.8;
     if (top5.has(game.appid)) weight *= 2.0;
     if (reviewedAppids.has(game.appid)) weight *= 1.5; // reviewed positively
+
+    // Achievement completion bonus — only counted if game has at least 5 achievements
+    const ach = achievementMap[game.appid];
+    if (ach && ach.total >= 5) {
+      const pct = ach.unlocked / ach.total;
+      if (pct >= 0.9) weight *= 1.8;
+      else if (pct >= 0.75) weight *= 1.5;
+      else if (pct >= 0.5) weight *= 1.25;
+      else if (pct >= 0.25) weight *= 1.1;
+    }
 
     const tags = parseJSON(meta.tags);
     for (const tag of tags) {
@@ -256,13 +266,13 @@ function tieredSample(pool, n) {
   ].sort(() => Math.random() - 0.5);
 }
 
-function buildRecommendations(steamId, library, allMetadata, reviewedAppids = new Set()) {
+function buildRecommendations(steamId, library, allMetadata, reviewedAppids = new Set(), achievementMap = {}) {
   const metadataMap = {};
   for (const m of allMetadata) {
     if (m) metadataMap[m.appid] = m;
   }
 
-  const profile = buildPreferenceProfile(library, metadataMap, reviewedAppids);
+  const profile = buildPreferenceProfile(library, metadataMap, reviewedAppids, achievementMap);
 
   // Attach metadata map and loved game names so scoreGame can do franchise detection
   profile._metadataMap = metadataMap;

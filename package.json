@@ -1,6 +1,6 @@
 {
   "name": "shelflife",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Steam library recommender — discover games you own but haven't played",
   "main": "server.js",
   "scripts": {
