@@ -181,13 +181,16 @@ router.get('/trailer/:appid', async (req, res) => {
 
   const cached = db.getGameMetadata(appid);
 
+  const cachedEsrb = cached?.esrb_rating || null;
+
   // 'none' sentinel = already confirmed no trailer exists on Steam, stop re-fetching
-  if (cached?.trailer_mp4 === 'none') {
-    return res.json({ trailer_mp4: null, short_description: cached?.short_description || null });
+  // Still re-fetch if esrb_rating is missing (null = never fetched for this field)
+  if (cached?.trailer_mp4 === 'none' && cachedEsrb !== null) {
+    return res.json({ trailer_mp4: null, short_description: cached?.short_description || null, esrb_rating: cachedEsrb === 'none' ? null : cachedEsrb });
   }
-  // Both fields populated — return immediately
-  if (cached?.trailer_mp4 && cached?.short_description) {
-    return res.json({ trailer_mp4: cached.trailer_mp4, short_description: cached.short_description });
+  // All fields populated — return immediately
+  if (cached?.trailer_mp4 && cached?.short_description && cachedEsrb !== null) {
+    return res.json({ trailer_mp4: cached.trailer_mp4, short_description: cached.short_description, esrb_rating: cachedEsrb === 'none' ? null : cachedEsrb });
   }
 
   // Fetch from Steam store API to fill in whatever is missing
@@ -195,17 +198,18 @@ router.get('/trailer/:appid', async (req, res) => {
     const r = await fetch(`https://store.steampowered.com/api/appdetails?appids=${appid}&cc=us&l=en`, {
       signal: AbortSignal.timeout(8000),
     });
-    if (!r.ok) return res.json({ trailer_mp4: null, short_description: cached?.short_description || null });
+    if (!r.ok) return res.json({ trailer_mp4: null, short_description: cached?.short_description || null, esrb_rating: cachedEsrb === 'none' ? null : cachedEsrb });
 
     const json = await r.json();
     const storeData = json?.[String(appid)]?.data;
-    if (!storeData) return res.json({ trailer_mp4: null, short_description: cached?.short_description || null });
+    if (!storeData) return res.json({ trailer_mp4: null, short_description: cached?.short_description || null, esrb_rating: cachedEsrb === 'none' ? null : cachedEsrb });
 
     const movies = storeData.movies || [];
     let trailer_mp4 = movies.length
       ? (movies[0]?.hls_h264 || movies[0]?.mp4?.['480'] || movies[0]?.mp4?.max || null)
       : null;
     const short_description = storeData.short_description || cached?.short_description || null;
+    const esrb_rating = storeData?.ratings?.esrb?.rating || 'none';
 
     // No Steam trailer — try YouTube as fallback
     if (!trailer_mp4) {
@@ -213,11 +217,11 @@ router.get('/trailer/:appid', async (req, res) => {
       trailer_mp4 = await searchYouTubeTrailer(gameName) || 'none';
     }
 
-    if (cached) db.updateGameDetails(appid, { trailer_mp4, short_description });
+    if (cached) db.updateGameDetails(appid, { trailer_mp4, short_description, esrb_rating });
 
-    res.json({ trailer_mp4: trailer_mp4 === 'none' ? null : trailer_mp4, short_description });
+    res.json({ trailer_mp4: trailer_mp4 === 'none' ? null : trailer_mp4, short_description, esrb_rating: esrb_rating === 'none' ? null : esrb_rating });
   } catch {
-    res.json({ trailer_mp4: null, short_description: cached?.short_description || null });
+    res.json({ trailer_mp4: null, short_description: cached?.short_description || null, esrb_rating: cachedEsrb === 'none' ? null : cachedEsrb });
   }
 });
 

@@ -5,7 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title><%= profile.display_name %> — ShelfLife</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-  <link rel="stylesheet" href="/css/style.css?v=5">
+  <link rel="manifest" href="/manifest/<%= steamId %>.json">
+  <link rel="apple-touch-icon" href="/icons/icon.svg">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="ShelfLife">
+  <meta name="theme-color" content="#0f0f11">
+  <link rel="stylesheet" href="/css/style.css?v=14">
 </head>
 <body>
   <%- include('partials/nav', { steamId }) %>
@@ -45,14 +52,13 @@
       <div class="section">
         <div class="section-header">
           <h2 class="section-title">Top 20</h2>
-          <div class="section-controls">
-            <span class="page-indicator" id="page-top20">1 / 1</span>
-            <button class="carousel-btn prev" data-section="top20">❮</button>
-            <button class="carousel-btn next" data-section="top20">❯</button>
-          </div>
         </div>
-        <div class="card-grid skeleton-grid" id="grid-top20">
-          <% for (let i = 0; i < 12; i++) { %><div class="card skeleton-card"></div><% } %>
+        <div class="carousel-wrap">
+          <div class="card-grid skeleton-grid" id="grid-top20">
+            <% for (let i = 0; i < 12; i++) { %><div class="card skeleton-card"></div><% } %>
+          </div>
+          <button class="carousel-arrow prev" data-section="top20">❮</button>
+          <button class="carousel-arrow next" data-section="top20">❯</button>
         </div>
       </div>
 
@@ -61,13 +67,14 @@
           <h2 class="section-title">Top Picks for You</h2>
           <div class="section-controls">
             <button class="shuffle-btn" data-section="topPicks">↺</button>
-            <span class="page-indicator" id="page-topPicks">1 / 1</span>
-            <button class="carousel-btn prev" data-section="topPicks">❮</button>
-            <button class="carousel-btn next" data-section="topPicks">❯</button>
           </div>
         </div>
-        <div class="card-grid skeleton-grid" id="grid-topPicks">
-          <% for (let i = 0; i < 12; i++) { %><div class="card skeleton-card"></div><% } %>
+        <div class="carousel-wrap">
+          <div class="card-grid skeleton-grid" id="grid-topPicks">
+            <% for (let i = 0; i < 12; i++) { %><div class="card skeleton-card"></div><% } %>
+          </div>
+          <button class="carousel-arrow prev" data-section="topPicks">❮</button>
+          <button class="carousel-arrow next" data-section="topPicks">❯</button>
         </div>
       </div>
 
@@ -76,13 +83,14 @@
           <h2 class="section-title">Never Touched</h2>
           <div class="section-controls">
             <button class="shuffle-btn" data-section="neverTouched">↺</button>
-            <span class="page-indicator" id="page-neverTouched">1 / 1</span>
-            <button class="carousel-btn prev" data-section="neverTouched">❮</button>
-            <button class="carousel-btn next" data-section="neverTouched">❯</button>
           </div>
         </div>
-        <div class="card-grid skeleton-grid" id="grid-neverTouched">
-          <% for (let i = 0; i < 12; i++) { %><div class="card skeleton-card"></div><% } %>
+        <div class="carousel-wrap">
+          <div class="card-grid skeleton-grid" id="grid-neverTouched">
+            <% for (let i = 0; i < 12; i++) { %><div class="card skeleton-card"></div><% } %>
+          </div>
+          <button class="carousel-arrow prev" data-section="neverTouched">❮</button>
+          <button class="carousel-arrow next" data-section="neverTouched">❯</button>
         </div>
       </div>
 
@@ -91,13 +99,14 @@
           <h2 class="section-title">Almost Started</h2>
           <div class="section-controls">
             <button class="shuffle-btn" data-section="almostStarted">↺</button>
-            <span class="page-indicator" id="page-almostStarted">1 / 1</span>
-            <button class="carousel-btn prev" data-section="almostStarted">❮</button>
-            <button class="carousel-btn next" data-section="almostStarted">❯</button>
           </div>
         </div>
-        <div class="card-grid skeleton-grid" id="grid-almostStarted">
-          <% for (let i = 0; i < 12; i++) { %><div class="card skeleton-card"></div><% } %>
+        <div class="carousel-wrap">
+          <div class="card-grid skeleton-grid" id="grid-almostStarted">
+            <% for (let i = 0; i < 12; i++) { %><div class="card skeleton-card"></div><% } %>
+          </div>
+          <button class="carousel-arrow prev" data-section="almostStarted">❮</button>
+          <button class="carousel-arrow next" data-section="almostStarted">❯</button>
         </div>
       </div>
 
@@ -107,13 +116,14 @@
           <div class="section-controls">
             <select class="genre-select" id="genre-select"></select>
             <button class="shuffle-btn" data-section="byGenre">↺</button>
-            <span class="page-indicator" id="page-byGenre">1 / 1</span>
-            <button class="carousel-btn prev" data-section="byGenre">❮</button>
-            <button class="carousel-btn next" data-section="byGenre">❯</button>
           </div>
         </div>
-        <div class="card-grid skeleton-grid" id="grid-byGenre">
-          <% for (let i = 0; i < 12; i++) { %><div class="card skeleton-card"></div><% } %>
+        <div class="carousel-wrap">
+          <div class="card-grid skeleton-grid" id="grid-byGenre">
+            <% for (let i = 0; i < 12; i++) { %><div class="card skeleton-card"></div><% } %>
+          </div>
+          <button class="carousel-arrow prev" data-section="byGenre">❮</button>
+          <button class="carousel-arrow next" data-section="byGenre">❯</button>
         </div>
       </div>
     </div>
@@ -125,22 +135,28 @@
   <div class="modal-backdrop" id="modal-backdrop" hidden>
     <div class="modal" id="modal">
       <button class="modal-close" id="modal-close">✕</button>
+      <!-- Hero banner (game art, fades to modal bg) -->
+      <div class="modal-hero" id="modal-hero"></div>
+      <!-- Body: poster art + info -->
       <div class="modal-body">
-        <div class="modal-left">
-          <img class="modal-poster" id="modal-poster" src="" alt="">
-          <video class="modal-video" id="modal-video" muted loop playsinline controls></video>
-          <iframe class="modal-video" id="modal-yt" allow="autoplay; encrypted-media" allowfullscreen></iframe>
-        </div>
-        <div class="modal-right">
+        <img class="modal-poster" id="modal-poster" src="" alt="">
+        <div class="modal-info">
           <h2 class="modal-title" id="modal-title"></h2>
           <div class="modal-meta" id="modal-meta"></div>
           <div class="modal-playtime" id="modal-playtime"></div>
           <div class="modal-ratings" id="modal-ratings"></div>
+          <div class="modal-reasons" id="modal-reasons"></div>
           <div class="modal-tags" id="modal-tags"></div>
           <p class="modal-desc" id="modal-desc"></p>
-          <div class="modal-reasons" id="modal-reasons"></div>
-          <a class="modal-steam-btn" id="modal-steam-btn" href="#" target="_blank" rel="noopener">Open in Steam</a>
+          <div class="modal-actions">
+            <a class="modal-steam-btn" id="modal-steam-btn" href="#" target="_blank" rel="noopener">Open in Steam</a>
+          </div>
         </div>
+      </div>
+      <!-- Trailer (full width, below info) -->
+      <div class="modal-trailer" id="modal-trailer">
+        <video class="modal-video" id="modal-video" muted loop playsinline controls></video>
+        <iframe class="modal-yt" id="modal-yt" allow="autoplay; encrypted-media" allowfullscreen></iframe>
       </div>
     </div>
   </div>
@@ -150,7 +166,12 @@
     const IS_LOADING = <%= isLoading ? 'true' : 'false' %>;
   </script>
   <script src="https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js"></script>
-  <script src="/js/app.js?v=6"></script>
-  <script src="/js/modal.js?v=8"></script>
+  <script src="/js/app.js?v=7"></script>
+  <script src="/js/modal.js?v=20"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js');
+    }
+  </script>
 </body>
 </html>
