@@ -466,7 +466,11 @@ function buildRecommendations(steamId, library, allMetadata, reviewedAppids = ne
   // Normalize scores to 0–96 range relative to user's actual top scorer.
   // Top game ≈ 92–96, so users can gauge recommendation confidence intuitively.
   // Falls back to raw score if pool is empty.
-  const topRaw = deduped[0]?.score || 1;
+  // MIN_SCORE_FLOOR: if the best raw score doesn't clear this, scores compress downward
+  // rather than inflating a weak library to look like 96. A well-matched library
+  // naturally clears 40+ and gets full range; sparse/mismatched libraries show lower scores.
+  const MIN_SCORE_FLOOR = 40;
+  const topRaw = Math.max(deduped[0]?.score || 1, MIN_SCORE_FLOOR);
   for (const g of deduped) {
     g.displayScore = Math.round(Math.min(96, (g.score / topRaw) * 96));
   }

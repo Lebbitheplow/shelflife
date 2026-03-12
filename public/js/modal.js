@@ -157,12 +157,13 @@ function openModal(game) {
   function loadTrailer(url) {
     if (!url || url === 'none') return;
 
-    // YouTube fallback — render in iframe, playsinline=1 keeps it in-page on iOS/Android
+    // YouTube fallback — youtube-nocookie.com avoids Android's YouTube app intent
+    // interception. playsinline=1 keeps playback in-page on iOS.
     if (url.startsWith('yt:')) {
       const videoId = url.slice(3);
       video.style.display = 'none';
       ytFrame.style.display = 'block';
-      ytFrame.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&loop=1&playlist=${videoId}&rel=0&playsinline=1`;
+      ytFrame.src = `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&mute=1&loop=1&playlist=${videoId}&rel=0&playsinline=1`;
       modalTrailer.classList.add('active');
       return;
     }
