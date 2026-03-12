@@ -281,6 +281,92 @@ function scoreGame(meta, profile, game) {
   return { score, reasons };
 }
 
+// Build a human-readable taste profile summary (up to 6 interest statements)
+function generateProfileSummary(profile, metadataMap, library, achievementMap = {}) {
+  const candidates = []; // { text, priority, category }
+
+  // ── Top genres ────────────────────────────────────────────────────────
+  const topGenres = Object.entries(profile.genres)
+    .filter(([, w]) => w > 0.45)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3);
+  for (const [genre, w] of topGenres) {
+    candidates.push({ text: `Loves ${genre} games`, priority: w * 5, cat: 'genre' });
+  }
+
+  // ── Top niche tags (IDF-weighted so common ones don't dominate) ───────
+  const tagEffectives = Object.entries(profile.tags)
+    .map(([tag, w]) => {
+      const rawIdf = profile.tagIDF?.[tag] ?? 1;
+      const idf = Math.max(0.35, Math.min(1.5, rawIdf));
+      return { tag, w, effective: w * idf };
+    })
+    .filter(x => x.effective > 0.35)
+    .sort((a, b) => b.effective - a.effective)
+    .slice(0, 6);
+  for (const { tag, effective } of tagEffectives) {
+    const seed = profile.tagSeed?.[tag];
+    const text = seed
+      ? `Into ${tag} — ${seed.name} is a favourite`
+      : `Into ${tag} games`;
+    candidates.push({ text, priority: effective * 3, cat: 'tag' });
+  }
+
+  // ── Developer loyalty ─────────────────────────────────────────────────
+  const topDevs = Object.entries(profile.devs)
+    .filter(([, w]) => w > 0.5)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 2);
+  for (const [dev, w] of topDevs) {
+    const seed = profile.devSeed?.[dev];
+    const text = seed
+      ? `Fan of ${dev} — loved ${seed.name}`
+      : `Fan of ${dev}`;
+    candidates.push({ text, priority: w * 4, cat: 'dev' });
+  }
+
+  // ── Most-played games ─────────────────────────────────────────────────
+  const topPlayed = [...library]
+    .filter(g => g.playtime_forever >= 600)
+    .sort((a, b) => b.playtime_forever - a.playtime_forever)
+    .slice(0, 4);
+  for (const game of topPlayed) {
+    const meta = metadataMap[game.appid];
+    if (!meta?.name) continue;
+    const hrs = Math.round(game.playtime_forever / 60);
+    candidates.push({ text: `${hrs}h in ${meta.name}`, priority: Math.sqrt(game.playtime_forever) * 0.6, cat: 'playtime' });
+  }
+
+  // ── Achievement hunter ────────────────────────────────────────────────
+  for (const [appidStr, ach] of Object.entries(achievementMap)) {
+    if (ach.total < 10) continue;
+    const pct = ach.unlocked / ach.total;
+    if (pct < 0.85) continue;
+    const meta = metadataMap[parseInt(appidStr)];
+    if (!meta?.name) continue;
+    candidates.push({
+      text: `Achievement hunter — ${Math.round(pct * 100)}% done in ${meta.name}`,
+      priority: pct * 4,
+      cat: 'ach',
+    });
+  }
+
+  // Sort by priority, then cap per-category to avoid all interests being the same type
+  candidates.sort((a, b) => b.priority - a.priority);
+  const catCounts = {};
+  const CAT_CAPS = { genre: 2, tag: 2, dev: 1, playtime: 2, ach: 1 };
+  const result = [];
+  for (const c of candidates) {
+    if (result.length >= 6) break;
+    const cap = CAT_CAPS[c.cat] ?? 2;
+    const used = catCounts[c.cat] || 0;
+    if (used >= cap) continue;
+    catCounts[c.cat] = used + 1;
+    result.push(c.text);
+  }
+  return result;
+}
+
 // Tiered random sample: 45% top, 35% mid, 20% lower
 function tieredSample(pool, n) {
   if (pool.length <= n) return [...pool];
@@ -305,6 +391,7 @@ function tieredSample(pool, n) {
 }
 
 function buildRecommendations(steamId, library, allMetadata, reviewedAppids = new Set(), achievementMap = {}) {
+  // achievementMap is keyed by appid string → { total, unlocked }
   const metadataMap = {};
   for (const m of allMetadata) {
     if (m) metadataMap[m.appid] = m;
@@ -424,6 +511,7 @@ function buildRecommendations(steamId, library, allMetadata, reviewedAppids = ne
       neverPlayed: neverTouched.length,
       almostStarted: almostStarted.length,
     },
+    profileSummary: generateProfileSummary(profile, metadataMap, library, achievementMap),
   };
 
   db.setRecCache(steamId, pools);

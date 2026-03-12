@@ -233,6 +233,17 @@ function updateGameDetails(appid, { trailer_mp4, short_description, esrb_rating 
     .run(trailer_mp4 ?? null, short_description || null, esrb_rating || null, appid);
 }
 
+// Like updateGameDetails but creates the row if it doesn't exist (e.g. metadata fetch failed at load time)
+function upsertTrailerDetails(appid, { trailer_mp4, short_description, esrb_rating }) {
+  db.prepare('INSERT OR IGNORE INTO game_metadata (appid) VALUES (?)').run(appid);
+  db.prepare(`UPDATE game_metadata SET
+    trailer_mp4 = ?,
+    short_description = COALESCE(?, short_description),
+    esrb_rating = COALESCE(?, esrb_rating)
+    WHERE appid = ?`)
+    .run(trailer_mp4 ?? null, short_description || null, esrb_rating || null, appid);
+}
+
 // User achievements
 function setAchievements(steamId, appid, total, unlocked) {
   db.prepare(`
@@ -261,6 +272,6 @@ module.exports = {
   getUserProfile, setUserProfile, isProfileFresh,
   getRecCache, setRecCache, clearRecCache,
   getLoadStatus, setLoadStatus, clearLoadStatus,
-  updateTrailerUrl, updateGameDetails,
+  updateTrailerUrl, updateGameDetails, upsertTrailerDetails,
   setAchievements, getAchievements, isAchievementFresh,
 };

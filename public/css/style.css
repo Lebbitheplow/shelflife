@@ -38,6 +38,61 @@ a:hover { color: var(--accent-hover); }
 .nav-logo:hover .nav-logo-svg { color: var(--accent-hover); }
 .nav-search-link { margin-left: auto; font-size: 0.85rem; color: var(--text-secondary); }
 .nav-search-link:hover { color: var(--text); }
+/* ── Taste Profile / Score Guide modal ── */
+.taste-backdrop[hidden] { display: none !important; }
+.taste-backdrop {
+  position: fixed; inset: 0; z-index: 1500;
+  background: rgba(0,0,0,0.72); display: flex; align-items: center; justify-content: center;
+  padding: 16px;
+}
+.taste-modal {
+  background: var(--bg2); border: 1px solid var(--border); border-radius: 14px;
+  width: 100%; max-width: 720px; max-height: 90vh; overflow-y: auto;
+  position: relative; padding: 28px 28px 24px;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.6);
+}
+.taste-modal-close {
+  position: absolute; top: 14px; right: 16px;
+  background: none; border: none; color: var(--text-muted); font-size: 1.2rem;
+  cursor: pointer; line-height: 1; padding: 2px 6px; border-radius: 4px;
+}
+.taste-modal-close:hover { color: var(--text); background: var(--bg3); }
+.taste-modal-body { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; }
+.taste-modal-heading {
+  font-size: 0.72rem; font-weight: 700; letter-spacing: 0.07em;
+  text-transform: uppercase; color: var(--text-secondary); margin-bottom: 14px;
+}
+
+/* Left panel — taste interests */
+.taste-interests-list { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+.taste-interests-list li {
+  font-size: 0.88rem; color: var(--text); display: flex; align-items: flex-start; gap: 8px; line-height: 1.4;
+}
+.taste-interests-list li::before { content: '♥'; color: #10b981; font-size: 0.7rem; flex-shrink: 0; margin-top: 0.25em; }
+.taste-loading, .taste-empty { color: var(--text-muted); font-size: 0.85rem; }
+.taste-loading::before, .taste-empty::before { display: none; }
+
+/* Right panel — score guide */
+.taste-guide-intro { font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 14px; line-height: 1.45; }
+.taste-guide-list { list-style: none; display: flex; flex-direction: column; gap: 12px; }
+.taste-guide-list li { display: flex; align-items: flex-start; gap: 12px; }
+.taste-guide-badge {
+  display: flex; align-items: center; gap: 5px; flex-shrink: 0;
+  font-size: 0.78rem; font-weight: 700; min-width: 62px;
+}
+.taste-guide-badge svg { width: 20px; height: 17px; flex-shrink: 0; }
+.taste-guide-badge--top  span { color: #10b981; }
+.taste-guide-badge--high span { color: #22c55e; }
+.taste-guide-badge--mid  span { color: #d4a017; }
+.taste-guide-badge--low  span { color: #f97316; }
+.taste-guide-badge--none span { color: #ef4444; }
+.taste-guide-desc { font-size: 0.82rem; color: var(--text-secondary); line-height: 1.4; padding-top: 1px; }
+.taste-guide-desc strong { color: var(--text); font-weight: 600; }
+
+@media (max-width: 560px) {
+  .taste-modal-body { grid-template-columns: 1fr; gap: 24px; }
+  .taste-modal { padding: 20px 16px 18px; }
+}
 
 /* ── Landing ── */
 .landing-body { display: flex; flex-direction: column; min-height: 100vh; }
@@ -73,7 +128,18 @@ a:hover { color: var(--accent-hover); }
   background: var(--bg2);
   border-bottom: 1px solid var(--border);
 }
-.profile-avatar { width: 56px; height: 56px; border-radius: 50%; border: 2px solid var(--border); }
+.profile-taste-btn {
+  margin-left: auto; display: flex; align-items: center; gap: 7px;
+  background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.3);
+  border-radius: 8px; padding: 6px 12px 6px 8px; cursor: pointer;
+  color: #10b981; font-size: 0.82rem; font-weight: 600;
+  transition: background 0.15s, border-color 0.15s;
+}
+.profile-taste-btn:hover { background: rgba(16,185,129,0.15); border-color: rgba(16,185,129,0.5); }
+.profile-taste-btn svg { width: 22px; height: 19px; flex-shrink: 0; }
+.profile-avatar { width: 56px; height: 56px; border-radius: 50%; border: 2px solid var(--border); transition: border-color 0.15s; }
+.profile-avatar:hover { border-color: var(--accent); }
+
 .profile-name { font-size: 1.25rem; font-weight: 700; }
 .profile-stats { font-size: 0.85rem; color: var(--text-secondary); margin-top: 2px; }
 
