@@ -1,7 +1,7 @@
-const CACHE = 'shelflife-v15';
+const CACHE = 'shelflife-v16';
 const STATIC = [
-  '/css/style.css?v=17',
-  '/js/app.js?v=9',
+  '/css/style.css?v=18',
+  '/js/app.js?v=10',
   '/js/modal.js?v=24',
   '/favicon.svg',
   '/icons/icon.svg',
