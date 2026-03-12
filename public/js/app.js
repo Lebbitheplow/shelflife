@@ -242,4 +242,38 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   loadRecs();
+
+  // ── Taste Profile / Score Guide modal ────────────────────────────────
+  const tasteBtn = document.getElementById('nav-taste-btn');
+  const tasteBackdrop = document.getElementById('taste-backdrop');
+  const tasteList = document.getElementById('taste-interests-list');
+  let tasteCache = null;
+
+  async function openTasteModal() {
+    tasteBackdrop.hidden = false;
+    document.body.style.overflow = 'hidden';
+
+    if (!tasteCache) {
+      try {
+        const res = await fetch(`/api/interests/${STEAM_ID}`);
+        const data = res.ok ? await res.json() : { interests: [] };
+        tasteCache = data.interests || [];
+      } catch { tasteCache = []; }
+    }
+
+    if (tasteCache.length) {
+      tasteList.innerHTML = tasteCache.map(i => `<li>${i}</li>`).join('');
+    } else {
+      tasteList.innerHTML = '<li class="taste-empty">Play more games to build a taste profile.</li>';
+    }
+  }
+
+  function closeTasteModal() {
+    tasteBackdrop.hidden = true;
+    document.body.style.overflow = '';
+  }
+
+  if (tasteBtn) tasteBtn.addEventListener('click', openTasteModal);
+  document.getElementById('taste-modal-close')?.addEventListener('click', closeTasteModal);
+  tasteBackdrop?.addEventListener('click', (e) => { if (e.target === tasteBackdrop) closeTasteModal(); });
 });

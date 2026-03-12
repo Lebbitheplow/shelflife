@@ -217,12 +217,19 @@ router.get('/trailer/:appid', async (req, res) => {
       trailer_mp4 = await searchYouTubeTrailer(gameName) || 'none';
     }
 
-    if (cached) db.updateGameDetails(appid, { trailer_mp4, short_description, esrb_rating });
+    db.upsertTrailerDetails(appid, { trailer_mp4, short_description, esrb_rating });
 
     res.json({ trailer_mp4: trailer_mp4 === 'none' ? null : trailer_mp4, short_description, esrb_rating: esrb_rating === 'none' ? null : esrb_rating });
   } catch {
     res.json({ trailer_mp4: null, short_description: cached?.short_description || null, esrb_rating: cachedEsrb === 'none' ? null : cachedEsrb });
   }
+});
+
+// Profile taste summary
+router.get('/interests/:steamId', (req, res) => {
+  const cached = db.getRecCache(req.params.steamId);
+  if (!cached) return res.status(404).json({ error: 'No data.' });
+  res.json({ interests: cached.profileSummary || [] });
 });
 
 // Genre filter

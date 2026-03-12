@@ -252,8 +252,12 @@ document.getElementById('modal-close').addEventListener('click', closeModal);
 backdrop.addEventListener('click', (e) => { if (e.target === backdrop) closeModal(); });
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
+    const tasteBackdrop = document.getElementById('taste-backdrop');
     if (reasonsPopup && reasonsPopup.classList.contains('visible')) {
       hideReasonsPopup();
+    } else if (tasteBackdrop && !tasteBackdrop.hidden) {
+      tasteBackdrop.hidden = true;
+      document.body.style.overflow = '';
     } else if (!backdrop.hidden) {
       closeModal();
     }
