@@ -23,22 +23,8 @@ function makeScrollTag(text, outerClass) {
   return tag;
 }
 
-const COLS_PER_ROW = () => {
-  const gridW = document.querySelector('.card-grid')?.offsetWidth || window.innerWidth - 48;
-  return Math.max(1, Math.floor(gridW / (180 + 12)));
-};
-const ROWS = 2;
-const PAGE_SIZE = () => COLS_PER_ROW() * ROWS;
-
 const state = {
   data: null,
-  pages: {
-    top20: 0,
-    topPicks: 0,
-    neverTouched: 0,
-    almostStarted: 0,
-    byGenre: 0,
-  },
   currentGenre: null,
 };
 
@@ -111,29 +97,29 @@ function renderCard(game) {
   return card;
 }
 
-function renderSection(sectionKey, games, pageNum) {
+function updateArrows(sectionKey) {
+  const grid = document.getElementById(`grid-${sectionKey}`);
+  if (!grid) return;
+  const wrap = grid.closest('.carousel-wrap');
+  if (!wrap) return;
+  const prevBtn = wrap.querySelector('.carousel-arrow.prev');
+  const nextBtn = wrap.querySelector('.carousel-arrow.next');
+  const atStart = grid.scrollLeft <= 4;
+  const atEnd = grid.scrollLeft + grid.clientWidth >= grid.scrollWidth - 4;
+  if (prevBtn) prevBtn.disabled = atStart;
+  if (nextBtn) nextBtn.disabled = atEnd;
+}
+
+function renderSection(sectionKey, games) {
   const grid = document.getElementById(`grid-${sectionKey}`);
   if (!grid) return;
 
-  const ps = PAGE_SIZE();
-  const totalPages = Math.max(1, Math.ceil(games.length / ps));
-  const p = Math.min(pageNum, totalPages - 1);
-  state.pages[sectionKey] = p;
-
-  const slice = games.slice(p * ps, (p + 1) * ps);
-
   grid.innerHTML = '';
   grid.classList.remove('skeleton-grid');
-  for (const game of slice) grid.appendChild(renderCard(game));
+  grid.scrollLeft = 0;
+  for (const game of games) grid.appendChild(renderCard(game));
 
-  // Update page indicator and arrow states
-  const indicator = document.getElementById(`page-${sectionKey}`);
-  if (indicator) indicator.textContent = `${p + 1} / ${totalPages}`;
-
-  document.querySelectorAll(`.carousel-btn[data-section="${sectionKey}"]`).forEach(btn => {
-    if (btn.classList.contains('prev')) btn.disabled = p === 0;
-    if (btn.classList.contains('next')) btn.disabled = p >= totalPages - 1;
-  });
+  updateArrows(sectionKey);
 }
 
 function getGamesForSection(sectionKey) {
@@ -177,13 +163,12 @@ function hydrateAll() {
     state.currentGenre = state.data.genres[0];
     genreSelect.addEventListener('change', () => {
       state.currentGenre = genreSelect.value;
-      state.pages.byGenre = 0;
-      renderSection('byGenre', getGamesForSection('byGenre'), 0);
+      renderSection('byGenre', getGamesForSection('byGenre'));
     });
   }
 
   ['top20', 'topPicks', 'neverTouched', 'almostStarted', 'byGenre'].forEach(key => {
-    renderSection(key, getGamesForSection(key), 0);
+    renderSection(key, getGamesForSection(key));
   });
 }
 
@@ -226,18 +211,21 @@ document.addEventListener('DOMContentLoaded', () => {
     return;
   }
 
-  // Carousel buttons
-  document.querySelectorAll('.carousel-btn').forEach(btn => {
+  // Carousel arrow buttons — scroll by one page width
+  document.querySelectorAll('.carousel-arrow').forEach(btn => {
     btn.addEventListener('click', () => {
       const key = btn.dataset.section;
-      const games = getGamesForSection(key);
-      const ps = PAGE_SIZE();
-      const totalPages = Math.max(1, Math.ceil(games.length / ps));
-      let p = state.pages[key] || 0;
-      if (btn.classList.contains('prev')) p = Math.max(0, p - 1);
-      if (btn.classList.contains('next')) p = Math.min(totalPages - 1, p + 1);
-      renderSection(key, games, p);
+      const grid = document.getElementById(`grid-${key}`);
+      if (!grid) return;
+      const dir = btn.classList.contains('prev') ? -1 : 1;
+      grid.scrollBy({ left: dir * grid.clientWidth, behavior: 'smooth' });
     });
+  });
+
+  // Update arrow states on scroll
+  ['top20', 'topPicks', 'neverTouched', 'almostStarted', 'byGenre'].forEach(key => {
+    const grid = document.getElementById(`grid-${key}`);
+    if (grid) grid.addEventListener('scroll', () => updateArrows(key), { passive: true });
   });
 
   // Shuffle buttons
@@ -248,7 +236,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const res = await fetch(`/api/shuffle/${STEAM_ID}`);
         if (!res.ok) return;
         state.data = await res.json();
-        renderSection(key, getGamesForSection(key), 0);
+        renderSection(key, getGamesForSection(key));
       } catch {}
     });
   });

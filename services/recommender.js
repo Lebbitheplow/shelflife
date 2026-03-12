@@ -137,15 +137,21 @@ function scoreGame(meta, profile, game) {
   }
   score += Math.min(devScore, 15);
 
-  // ── Tag overlap ────────────────────────────────────────────────────────
-  // ── Tag overlap score (profile-weighted) ──────────────────────────────
+  // ── Tag overlap (IDF-weighted: rare/niche tags count more than common ones) ──
   let tagScore = 0;
   let bestTagW = 0;
   let bestTag = null;
   for (const tag of tags) {
     const w = profile.tags[tag] || 0;
-    tagScore += w * 4;
-    if (w > bestTagW) { bestTagW = w; bestTag = tag; }
+    if (!w) continue;
+    // Normalize IDF to 0–1, floor at 0.1 so no tag is fully silenced
+    // Clamp raw IDF: common tags (Singleplayer) → ~0.35 floor, niche tags → up to 1.5 ceiling
+    // Avoids the old approach of dividing by maxTagIDF which collapsed common tags to near-zero
+    const rawIdf = profile.tagIDF?.[tag] ?? 1;
+    const normIdf = Math.max(0.35, Math.min(1.5, rawIdf));
+    const effective = w * normIdf;
+    tagScore += effective * 4;
+    if (effective > bestTagW) { bestTagW = effective; bestTag = tag; }
   }
   score += Math.min(tagScore, 40);
 
@@ -194,30 +200,36 @@ function scoreGame(meta, profile, game) {
 
   // ── Genre match ────────────────────────────────────────────────────────
   let genreScore = 0;
+  let bestGenreW = 0, bestGenre = null;
   for (const genre of genres) {
     const w = profile.genres[genre] || 0;
     genreScore += w * 5;
+    if (w > bestGenreW) { bestGenreW = w; bestGenre = genre; }
   }
   score += Math.min(genreScore, 20);
+  if (bestGenre && bestGenreW > 0.45) {
+    reasonCandidates.push({ text: `Fits your ${bestGenre} preference`, priority: bestGenreW * 1.8 });
+  }
 
   // ── Category match ─────────────────────────────────────────────────────
+  const SOCIAL_CATS = ['Co-op', 'Online Co-op', 'Multi-player', 'Local Co-op', 'MMO'];
   let catScore = 0;
   for (const cat of cats) {
-    catScore += (profile.categories[cat] || 0) * 2.5;
+    const w = profile.categories[cat] || 0;
+    catScore += w * 2.5;
+    if (SOCIAL_CATS.includes(cat) && w > 0.5) {
+      reasonCandidates.push({ text: `You enjoy ${cat} games`, priority: w * 1.2 });
+    }
   }
   score += Math.min(catScore, 10);
-
-  // ── Review bonus ───────────────────────────────────────────────────────
-  // Check if a reviewed game shares tags with this candidate (indirect signal)
-  // (direct: already baked into weight multiplier in profile building)
 
   // ── Metacritic bonus ───────────────────────────────────────────────────
   if (meta.metacritic_score >= 90) {
     score += 5;
-    reasonCandidates.push({ text: `Critically acclaimed · ${meta.metacritic_score}`, priority: 3 });
+    reasonCandidates.push({ text: `Critically acclaimed · ${meta.metacritic_score} MC`, priority: 3 });
   } else if (meta.metacritic_score >= 80) {
     score += 3;
-    reasonCandidates.push({ text: `Highly rated · ${meta.metacritic_score}`, priority: 2 });
+    reasonCandidates.push({ text: `Highly rated · ${meta.metacritic_score} MC`, priority: 2 });
   }
 
   // ── Steam community score ──────────────────────────────────────────────
@@ -225,14 +237,40 @@ function scoreGame(meta, profile, game) {
     const total = meta.steam_positive + meta.steam_negative;
     if (total > 500) {
       const pct = meta.steam_positive / total;
-      if (pct >= 0.95) score += 4;
-      else if (pct >= 0.85) score += 2;
+      if (pct >= 0.95) { score += 4; reasonCandidates.push({ text: 'Overwhelmingly positive reviews', priority: 2.5 }); }
+      else if (pct >= 0.85) { score += 2; reasonCandidates.push({ text: 'Very positive reviews', priority: 1.5 }); }
     }
   }
 
-  // Pick top 2 reasons by priority
+  // ── Release recency bonus ──────────────────────────────────────────────
+  if (meta.release_date) {
+    const year = parseInt((meta.release_date.match(/\d{4}/) || [])[0]);
+    if (year) {
+      const age = new Date().getFullYear() - year;
+      if (age <= 1) { score += 5; reasonCandidates.push({ text: 'Recently released', priority: 1.5 }); }
+      else if (age <= 2) score += 3;
+      else if (age <= 3) score += 1;
+    }
+  }
+
+  // Top 3 niche matching tags as supplemental reasons (lower priority, fills slots 4–6)
+  const topMatchTags = tags
+    .map(t => {
+      const w = profile.tags[t] || 0;
+      if (!w) return null;
+      const idf = Math.max(0.35, Math.min(1.5, profile.tagIDF?.[t] ?? 1));
+      return { tag: t, effective: w * idf };
+    })
+    .filter(x => x && x.effective > 0.3 && x.tag !== bestTag)
+    .sort((a, b) => b.effective - a.effective)
+    .slice(0, 3);
+  for (const { tag, effective } of topMatchTags) {
+    reasonCandidates.push({ text: `Matches your ${tag} taste`, priority: effective * 1.5 });
+  }
+
+  // Pick top 6 reasons by priority
   reasonCandidates.sort((a, b) => b.priority - a.priority);
-  const reasons = reasonCandidates.slice(0, 2).map(r => r.text);
+  const reasons = reasonCandidates.slice(0, 6).map(r => r.text);
 
   // Fallback reason if nothing specific fired
   if (!reasons.length) {
@@ -272,7 +310,24 @@ function buildRecommendations(steamId, library, allMetadata, reviewedAppids = ne
     if (m) metadataMap[m.appid] = m;
   }
 
+  // Compute tag IDF: rare/niche tags get higher weight than ubiquitous ones (e.g. "Singleplayer")
+  const tagDF = {};
+  const totalDocs = allMetadata.filter(m => m).length || 1;
+  for (const m of allMetadata) {
+    if (!m) continue;
+    const seen = new Set(parseJSON(m.tags));
+    for (const tag of seen) tagDF[tag] = (tagDF[tag] || 0) + 1;
+  }
+  const tagIDF = {};
+  for (const [tag, df] of Object.entries(tagDF)) {
+    tagIDF[tag] = Math.log((totalDocs + 1) / (df + 1));
+  }
+  // maxTagIDF kept for reference but scoring now uses clamped raw IDF (see scoreGame)
+  const maxTagIDF = Math.max(...Object.values(tagIDF), 1);
+
   const profile = buildPreferenceProfile(library, metadataMap, reviewedAppids, achievementMap);
+  profile.tagIDF = tagIDF;
+  profile.maxTagIDF = maxTagIDF;
 
   // Attach metadata map and loved game names so scoreGame can do franchise detection
   profile._metadataMap = metadataMap;
@@ -320,6 +375,14 @@ function buildRecommendations(steamId, library, allMetadata, reviewedAppids = ne
     seenNames.add(key);
     return true;
   });
+
+  // Normalize scores to 0–96 range relative to user's actual top scorer.
+  // Top game ≈ 92–96, so users can gauge recommendation confidence intuitively.
+  // Falls back to raw score if pool is empty.
+  const topRaw = deduped[0]?.score || 1;
+  for (const g of deduped) {
+    g.displayScore = Math.round(Math.min(96, (g.score / topRaw) * 96));
+  }
 
   const neverTouched = deduped.filter(g => g.playtime === 0);
   const almostStarted = deduped.filter(g => g.playtime > 0 && g.playtime < ALMOST_STARTED_MAX);

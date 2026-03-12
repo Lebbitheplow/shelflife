@@ -113,6 +113,7 @@ async function fetchAppDetails(appid) {
       trailer_mp4,
       header_image: storeData?.header_image || `https://cdn.akamai.steamstatic.com/steam/apps/${appid}/header.jpg`,
       release_date: storeData?.release_date?.date || null,
+      esrb_rating: storeData?.ratings?.esrb?.rating || 'none',
     };
 
     db.setGameMetadata(appid, metadata);

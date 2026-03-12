@@ -9,6 +9,26 @@ router.get('/', (req, res) => {
   res.render('index');
 });
 
+// PWA manifest — personalized per user so start_url opens their profile
+router.get('/manifest/:steamId.json', (req, res) => {
+  const { steamId } = req.params;
+  const profile = db.getUserProfile(steamId);
+  const displayName = profile?.display_name;
+  res.setHeader('Content-Type', 'application/manifest+json');
+  res.json({
+    name: displayName ? `${displayName} — ShelfLife` : 'ShelfLife',
+    short_name: 'ShelfLife',
+    description: 'Your Steam library, ranked and ready.',
+    start_url: `/profile/${steamId}`,
+    display: 'standalone',
+    background_color: '#0f0f11',
+    theme_color: '#0f0f11',
+    icons: [
+      { src: '/icons/icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' },
+    ],
+  });
+});
+
 // Profile page
 router.get('/profile/:steamId', async (req, res) => {
   const { steamId } = req.params;

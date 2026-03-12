@@ -71,6 +71,7 @@ db.exec(`
 // Migrations — must run after CREATE TABLE so they work on both fresh and existing DBs
 try { db.exec('ALTER TABLE game_metadata ADD COLUMN igdb_id INTEGER'); } catch {}
 try { db.exec('ALTER TABLE game_metadata ADD COLUMN igdb_collection INTEGER'); } catch {}
+try { db.exec('ALTER TABLE game_metadata ADD COLUMN esrb_rating TEXT'); } catch {}
 
 // Game metadata
 function getGameMetadata(appid) {
@@ -82,8 +83,8 @@ function setGameMetadata(appid, data) {
     INSERT OR REPLACE INTO game_metadata
       (appid, name, short_description, developers, publishers, genres, categories,
        tags, metacritic_score, steam_positive, steam_negative, trailer_mp4,
-       header_image, release_date, fetched_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       header_image, release_date, esrb_rating, fetched_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     appid,
     data.name || null,
@@ -99,6 +100,7 @@ function setGameMetadata(appid, data) {
     data.trailer_mp4 || null,
     data.header_image || null,
     data.release_date || null,
+    data.esrb_rating || null,
     Math.floor(Date.now() / 1000)
   );
 }
@@ -116,8 +118,9 @@ function getGameMetadataBatch(appids) {
 }
 
 function isMetadataFresh(appid, ttlDays = 7) {
-  const row = db.prepare('SELECT fetched_at FROM game_metadata WHERE appid = ?').get(appid);
+  const row = db.prepare('SELECT fetched_at, esrb_rating FROM game_metadata WHERE appid = ?').get(appid);
   if (!row) return false;
+  if (row.esrb_rating === null || row.esrb_rating === undefined) return false;
   return (Date.now() / 1000 - row.fetched_at) < ttlDays * 86400;
 }
 
@@ -221,10 +224,13 @@ function getUnenrichedAppids(appids) {
   return results;
 }
 
-function updateGameDetails(appid, { trailer_mp4, short_description }) {
-  // Always overwrite trailer_mp4 (may be 'none' sentinel); only COALESCE description
-  db.prepare('UPDATE game_metadata SET trailer_mp4 = ?, short_description = COALESCE(?, short_description) WHERE appid = ?')
-    .run(trailer_mp4 ?? null, short_description || null, appid);
+function updateGameDetails(appid, { trailer_mp4, short_description, esrb_rating }) {
+  db.prepare(`UPDATE game_metadata SET
+    trailer_mp4 = ?,
+    short_description = COALESCE(?, short_description),
+    esrb_rating = COALESCE(?, esrb_rating)
+    WHERE appid = ?`)
+    .run(trailer_mp4 ?? null, short_description || null, esrb_rating || null, appid);
 }
 
 // User achievements
