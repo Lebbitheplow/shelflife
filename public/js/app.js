@@ -228,17 +228,16 @@ document.addEventListener('DOMContentLoaded', () => {
     if (grid) grid.addEventListener('scroll', () => updateArrows(key), { passive: true });
   });
 
-  // Shuffle buttons
-  document.querySelectorAll('.shuffle-btn').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const key = btn.dataset.section;
-      try {
-        const res = await fetch(`/api/shuffle/${STEAM_ID}`);
-        if (!res.ok) return;
-        state.data = await res.json();
+  // Global shuffle button — reshuffles all sections at once
+  document.getElementById('shuffle-all-btn')?.addEventListener('click', async () => {
+    try {
+      const res = await fetch(`/api/shuffle/${STEAM_ID}`);
+      if (!res.ok) return;
+      state.data = await res.json();
+      for (const key of ['topPicks', 'neverTouched', 'almostStarted', 'byGenre']) {
         renderSection(key, getGamesForSection(key));
-      } catch {}
-    });
+      }
+    } catch {}
   });
 
   loadRecs();

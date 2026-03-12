@@ -12,7 +12,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="ShelfLife">
   <meta name="theme-color" content="#0f0f11">
-  <link rel="stylesheet" href="/css/style.css?v=17">
+  <link rel="stylesheet" href="/css/style.css?v=18">
 </head>
 <body>
   <%- include('partials/nav', { steamId }) %>
@@ -58,6 +58,9 @@
     <% } else { %>
     <!-- Recommendations loaded server-side on return visits — JS will hydrate -->
     <div id="recs-container">
+      <div class="recs-toolbar">
+        <button class="shuffle-all-btn" id="shuffle-all-btn">↺ Shuffle</button>
+      </div>
       <!-- Skeleton while JS loads recs -->
       <div class="section">
         <div class="section-header">
@@ -75,9 +78,6 @@
       <div class="section">
         <div class="section-header">
           <h2 class="section-title">Top Picks for You</h2>
-          <div class="section-controls">
-            <button class="shuffle-btn" data-section="topPicks">↺</button>
-          </div>
         </div>
         <div class="carousel-wrap">
           <div class="card-grid skeleton-grid" id="grid-topPicks">
@@ -91,9 +91,6 @@
       <div class="section">
         <div class="section-header">
           <h2 class="section-title">Never Touched</h2>
-          <div class="section-controls">
-            <button class="shuffle-btn" data-section="neverTouched">↺</button>
-          </div>
         </div>
         <div class="carousel-wrap">
           <div class="card-grid skeleton-grid" id="grid-neverTouched">
@@ -107,9 +104,6 @@
       <div class="section">
         <div class="section-header">
           <h2 class="section-title">Almost Started</h2>
-          <div class="section-controls">
-            <button class="shuffle-btn" data-section="almostStarted">↺</button>
-          </div>
         </div>
         <div class="carousel-wrap">
           <div class="card-grid skeleton-grid" id="grid-almostStarted">
@@ -125,7 +119,6 @@
           <h2 class="section-title">By Genre</h2>
           <div class="section-controls">
             <select class="genre-select" id="genre-select"></select>
-            <button class="shuffle-btn" data-section="byGenre">↺</button>
           </div>
         </div>
         <div class="carousel-wrap">
@@ -252,7 +245,7 @@
     const IS_LOADING = <%= isLoading ? 'true' : 'false' %>;
   </script>
   <script src="https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js"></script>
-  <script src="/js/app.js?v=9"></script>
+  <script src="/js/app.js?v=10"></script>
   <script src="/js/modal.js?v=24"></script>
   <script>
     if ('serviceWorker' in navigator) {

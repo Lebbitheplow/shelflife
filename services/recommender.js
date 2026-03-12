@@ -351,16 +351,29 @@ function generateProfileSummary(profile, metadataMap, library, achievementMap = 
     });
   }
 
-  // Sort by priority, then cap per-category to avoid all interests being the same type
+  // Sort by priority, then cap per-category to avoid all interests being the same type.
+  // Also deduplicate by game title — extract any quoted game name from the text and skip
+  // if that title already appeared in an earlier interest.
   candidates.sort((a, b) => b.priority - a.priority);
   const catCounts = {};
   const CAT_CAPS = { genre: 2, tag: 2, dev: 1, playtime: 2, ach: 1 };
+  const seenTitles = new Set();
   const result = [];
+
+  function extractTitle(text) {
+    // Matches patterns like: "into X", "loved X", "put Nh into X", "X% done in X", "loved X"
+    const m = text.match(/(?:into|loved|in)\s+(.+?)(?:\s*$)/i);
+    return m ? m[1].trim().toLowerCase() : null;
+  }
+
   for (const c of candidates) {
     if (result.length >= 6) break;
     const cap = CAT_CAPS[c.cat] ?? 2;
     const used = catCounts[c.cat] || 0;
     if (used >= cap) continue;
+    const title = extractTitle(c.text);
+    if (title && seenTitles.has(title)) continue;
+    if (title) seenTitles.add(title);
     catCounts[c.cat] = used + 1;
     result.push(c.text);
   }

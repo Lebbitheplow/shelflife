@@ -162,13 +162,23 @@ a:hover { color: var(--accent-hover); }
   color: var(--text); padding: 4px 8px; font-size: 0.8rem; cursor: pointer;
 }
 
-.shuffle-btn, .carousel-btn {
+.carousel-btn {
   background: var(--bg3); border: 1px solid var(--border); border-radius: 6px;
   color: var(--text-secondary); padding: 4px 10px; font-size: 0.85rem;
   cursor: pointer; transition: color 0.15s, border-color 0.15s;
 }
-.shuffle-btn:hover, .carousel-btn:hover { color: var(--text); border-color: var(--accent); }
+.carousel-btn:hover { color: var(--text); border-color: var(--accent); }
 .carousel-btn:disabled { opacity: 0.3; cursor: default; }
+
+.recs-toolbar {
+  display: flex; justify-content: flex-end; margin-bottom: 20px;
+}
+.shuffle-all-btn {
+  background: var(--bg3); border: 1px solid var(--border); border-radius: 6px;
+  color: var(--text-secondary); padding: 5px 14px; font-size: 0.85rem;
+  cursor: pointer; transition: color 0.15s, border-color 0.15s;
+}
+.shuffle-all-btn:hover { color: var(--text); border-color: var(--accent); }
 
 .page-indicator { font-size: 0.75rem; color: var(--text-muted); min-width: 36px; text-align: center; }
 
@@ -571,6 +581,6 @@ a:hover { color: var(--accent-hover); }
 @media (max-width: 420px) {
   :root { --card-w: 130px; }
   .section-controls { gap: 6px; }
-  .shuffle-btn, .carousel-btn { padding: 4px 8px; font-size: 0.8rem; }
+  .carousel-btn { padding: 4px 8px; font-size: 0.8rem; }
   .page-indicator { min-width: 28px; font-size: 0.7rem; }
 }
