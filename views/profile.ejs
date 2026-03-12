@@ -166,7 +166,7 @@
       <!-- Trailer (full width, below info) -->
       <div class="modal-trailer" id="modal-trailer">
         <video class="modal-video" id="modal-video" muted loop playsinline controls></video>
-        <iframe class="modal-yt" id="modal-yt" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+        <iframe class="modal-yt" id="modal-yt" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>
       </div>
     </div>
   </div>
@@ -253,7 +253,7 @@
   </script>
   <script src="https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js"></script>
   <script src="/js/app.js?v=9"></script>
-  <script src="/js/modal.js?v=21"></script>
+  <script src="/js/modal.js?v=24"></script>
   <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js');
