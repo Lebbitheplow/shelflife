@@ -268,9 +268,12 @@ function scoreGame(meta, profile, game) {
     reasonCandidates.push({ text: `Matches your ${tag} taste`, priority: effective * 1.5 });
   }
 
-  // Pick top 6 reasons by priority
+  // Pick top 6 reasons by priority, deduplicating identical text
   reasonCandidates.sort((a, b) => b.priority - a.priority);
-  const reasons = reasonCandidates.slice(0, 6).map(r => r.text);
+  const seenReasons = new Set();
+  const reasons = reasonCandidates
+    .filter(r => { if (seenReasons.has(r.text)) return false; seenReasons.add(r.text); return true; })
+    .slice(0, 6).map(r => r.text);
 
   // Fallback reason if nothing specific fired
   if (!reasons.length) {
