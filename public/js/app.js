@@ -275,6 +275,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
   loadRecs();
 
+  // Refresh data button
+  document.getElementById('nav-refresh-btn')?.addEventListener('click', async function () {
+    this.disabled = true;
+    this.textContent = 'Refreshing…';
+    try {
+      await fetch(`/api/refresh/${STEAM_ID}`, { method: 'POST' });
+    } catch {}
+    window.location.reload();
+  });
+
   // ── Taste Profile / Score Guide modal ────────────────────────────────
   const tasteBtn = document.getElementById('nav-taste-btn');
   const tasteBackdrop = document.getElementById('taste-backdrop');

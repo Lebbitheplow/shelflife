@@ -36,7 +36,15 @@ a:hover { color: var(--accent-hover); }
 .nav-logo:hover { color: var(--accent-hover); }
 .nav-logo-svg { width: 36px; height: 25px; color: var(--accent); flex-shrink: 0; transition: color 0.2s; }
 .nav-logo:hover .nav-logo-svg { color: var(--accent-hover); }
-.nav-search-link { margin-left: auto; font-size: 0.85rem; color: var(--text-secondary); }
+.nav-actions { margin-left: auto; display: flex; align-items: center; gap: 16px; }
+.nav-refresh-btn {
+  background: none; border: none; cursor: pointer; font-family: inherit;
+  font-size: 0.85rem; color: var(--text-secondary); padding: 0;
+  transition: color 0.15s;
+}
+.nav-refresh-btn:hover { color: var(--text); }
+.nav-refresh-btn:disabled { opacity: 0.5; cursor: default; }
+.nav-search-link { font-size: 0.85rem; color: var(--text-secondary); }
 .nav-search-link:hover { color: var(--text); }
 /* ── Taste Profile / Score Guide modal ── */
 .taste-backdrop[hidden] { display: none !important; }
