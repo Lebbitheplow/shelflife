@@ -107,6 +107,15 @@ async function runLoadJob(steamId) {
   }
 }
 
+// Manual refresh — clears cached recs and re-triggers a full data reload
+router.post('/refresh/:steamId', (req, res) => {
+  const { steamId } = req.params;
+  if (!/^\d+$/.test(steamId)) return res.status(400).json({ error: 'Invalid steamId' });
+  db.clearRecCache(steamId);
+  runLoadJob(steamId);
+  res.json({ success: true });
+});
+
 // Poll endpoint for load status
 router.get('/status/:steamId', (req, res) => {
   const status = db.getLoadStatus(req.params.steamId);

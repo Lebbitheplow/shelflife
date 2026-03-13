@@ -17,6 +17,9 @@
     <span class="nav-logo-text">ShelfLife</span>
   </a>
   <% if (typeof steamId !== 'undefined' && steamId) { %>
-  <a class="nav-search-link" href="/">Search another profile</a>
+  <div class="nav-actions">
+    <button class="nav-refresh-btn" id="nav-refresh-btn" title="Re-fetch Steam data and rebuild recommendations">↺ Manual refresh</button>
+    <a class="nav-search-link" href="/">Search another profile</a>
+  </div>
   <% } %>
 </nav>

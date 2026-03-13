@@ -115,6 +115,7 @@ function scoreGame(meta, profile, game) {
           ? `You put ${hrs}h into ${lovedMeta.name}`
           : `In the ${lovedMeta.name} series`,
         priority: 10,
+        seed: lovedMeta.name,
       });
       break;
     }
@@ -132,6 +133,7 @@ function scoreGame(meta, profile, game) {
           ? `More from ${dev} (you loved ${seed.name})`
           : `More from ${dev}`,
         priority: w * 8,
+        seed: seed?.name || null,
       });
     }
   }
@@ -192,6 +194,7 @@ function scoreGame(meta, profile, game) {
         ? `You put ${hrs}h into ${bestSimilarGame.name}`
         : `Similar to ${bestSimilarGame.name}`,
       priority: bestSimilarity * 10,
+      seed: bestSimilarGame.name,
     });
   } else if (bestTag && bestTagW > 0.4) {
     // Fall back to generic tag reason if no strong game match
@@ -265,14 +268,23 @@ function scoreGame(meta, profile, game) {
     .sort((a, b) => b.effective - a.effective)
     .slice(0, 3);
   for (const { tag, effective } of topMatchTags) {
-    reasonCandidates.push({ text: `Matches your ${tag} taste`, priority: effective * 1.5 });
+    const tagSeedGame = profile.tagSeed?.[tag];
+    reasonCandidates.push({ text: `Matches your ${tag} taste`, priority: effective * 1.5, seed: tagSeedGame?.name || null });
   }
 
-  // Pick top 6 reasons by priority, deduplicating identical text
+  // Pick top 6 reasons by priority, deduplicating identical text and seed games
   reasonCandidates.sort((a, b) => b.priority - a.priority);
   const seenReasons = new Set();
+  const seenSeeds = new Set();
   const reasons = reasonCandidates
-    .filter(r => { if (seenReasons.has(r.text)) return false; seenReasons.add(r.text); return true; })
+    .filter(r => {
+      if (seenReasons.has(r.text)) return false;
+      const seedKey = r.seed?.toLowerCase();
+      if (seedKey && seenSeeds.has(seedKey)) return false;
+      seenReasons.add(r.text);
+      if (seedKey) seenSeeds.add(seedKey);
+      return true;
+    })
     .slice(0, 6).map(r => r.text);
 
   // Fallback reason if nothing specific fired
@@ -312,7 +324,7 @@ function generateProfileSummary(profile, metadataMap, library, achievementMap = 
     const text = seed
       ? `Into ${tag} — ${seed.name} is a favourite`
       : `Into ${tag} games`;
-    candidates.push({ text, priority: effective * 3, cat: 'tag' });
+    candidates.push({ text, priority: effective * 3, cat: 'tag', seed: seed?.name || null });
   }
 
   // ── Developer loyalty ─────────────────────────────────────────────────
@@ -325,7 +337,7 @@ function generateProfileSummary(profile, metadataMap, library, achievementMap = 
     const text = seed
       ? `Fan of ${dev} — loved ${seed.name}`
       : `Fan of ${dev}`;
-    candidates.push({ text, priority: w * 4, cat: 'dev' });
+    candidates.push({ text, priority: w * 4, cat: 'dev', seed: seed?.name || null });
   }
 
   // ── Most-played games ─────────────────────────────────────────────────
@@ -337,7 +349,7 @@ function generateProfileSummary(profile, metadataMap, library, achievementMap = 
     const meta = metadataMap[game.appid];
     if (!meta?.name) continue;
     const hrs = Math.round(game.playtime_forever / 60);
-    candidates.push({ text: `${hrs}h in ${meta.name}`, priority: Math.sqrt(game.playtime_forever) * 0.6, cat: 'playtime' });
+    candidates.push({ text: `${hrs}h in ${meta.name}`, priority: Math.sqrt(game.playtime_forever) * 0.6, cat: 'playtime', seed: meta.name });
   }
 
   // ── Achievement hunter ────────────────────────────────────────────────
@@ -351,33 +363,25 @@ function generateProfileSummary(profile, metadataMap, library, achievementMap = 
       text: `Achievement hunter — ${Math.round(pct * 100)}% done in ${meta.name}`,
       priority: pct * 4,
       cat: 'ach',
+      seed: meta.name,
     });
   }
 
-  // Sort by priority, then cap per-category to avoid all interests being the same type.
-  // Also deduplicate by game title — extract any quoted game name from the text and skip
-  // if that title already appeared in an earlier interest.
+  // Sort by priority, then cap per-category and deduplicate by seed game.
   candidates.sort((a, b) => b.priority - a.priority);
   const catCounts = {};
   const CAT_CAPS = { genre: 2, tag: 2, dev: 1, playtime: 2, ach: 1 };
-  const seenTitles = new Set();
+  const seenSeeds = new Set();
   const result = [];
-
-  function extractTitle(text) {
-    // Matches patterns like: "into X", "loved X", "put Nh into X", "X% done in X", "loved X"
-    const m = text.match(/(?:into|loved|in)\s+(.+?)(?:\s*$)/i);
-    return m ? m[1].trim().toLowerCase() : null;
-  }
 
   for (const c of candidates) {
     if (result.length >= 6) break;
     const cap = CAT_CAPS[c.cat] ?? 2;
-    const used = catCounts[c.cat] || 0;
-    if (used >= cap) continue;
-    const title = extractTitle(c.text);
-    if (title && seenTitles.has(title)) continue;
-    if (title) seenTitles.add(title);
-    catCounts[c.cat] = used + 1;
+    if ((catCounts[c.cat] || 0) >= cap) continue;
+    const seedKey = c.seed?.toLowerCase();
+    if (seedKey && seenSeeds.has(seedKey)) continue;
+    if (seedKey) seenSeeds.add(seedKey);
+    catCounts[c.cat] = (catCounts[c.cat] || 0) + 1;
     result.push(c.text);
   }
   return result;
