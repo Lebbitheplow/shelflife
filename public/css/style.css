@@ -284,6 +284,12 @@ a:hover { color: var(--accent-hover); }
   transition: color 0.15s, border-color 0.15s; text-decoration: none; display: inline-block;
 }
 .overlay-steam-btn:hover { color: var(--text); border-color: var(--text); }
+.overlay-dismiss-btn {
+  background: transparent; color: var(--text-muted, #666); border: 1px solid transparent;
+  border-radius: 6px; padding: 6px 14px; font-size: 0.75rem; cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+.overlay-dismiss-btn:hover { color: #f87171; border-color: #f87171; }
 
 /* ── Loading State ── */
 .loading-state { text-align: center; padding: 80px 24px; }
@@ -503,6 +509,12 @@ a:hover { color: var(--accent-hover); }
   transition: background 0.15s;
 }
 .modal-steam-btn:hover { background: #2a3f55; color: #c6d4df; }
+.modal-dismiss-btn {
+  background: transparent; color: var(--text-secondary); border: 1px solid var(--border);
+  border-radius: 6px; padding: 9px 18px; font-size: 0.85rem; font-weight: 600; cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+.modal-dismiss-btn:hover { color: #f87171; border-color: #f87171; }
 
 /* Trailer — full width below body */
 .modal-trailer {

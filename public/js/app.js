@@ -89,12 +89,45 @@ function renderCard(game) {
   overlay.appendChild(infoBtn);
   overlay.appendChild(steamBtn);
 
+  const dismissBtn = document.createElement('button');
+  dismissBtn.className = 'overlay-dismiss-btn';
+  dismissBtn.textContent = '✕ Hide';
+  dismissBtn.title = "Don't show this again";
+  dismissBtn.addEventListener('click', function (e) {
+    e.stopPropagation();
+    doDismiss(card, game.appid);
+  });
+  overlay.appendChild(dismissBtn);
+
   card.appendChild(img);
   card.appendChild(body);
   card.appendChild(overlay);
   card.addEventListener('click', () => openModal(game));
 
   return card;
+}
+
+function doDismiss(cardEl, appid) {
+  cardEl.style.opacity = '0';
+  cardEl.style.transition = 'opacity 0.25s';
+  fetch('/api/dismiss', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ appid, steamId: STEAM_ID }),
+  })
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) {
+        setTimeout(() => cardEl.remove(), 250);
+      } else {
+        cardEl.style.opacity = '';
+        cardEl.style.transition = '';
+      }
+    })
+    .catch(() => {
+      cardEl.style.opacity = '';
+      cardEl.style.transition = '';
+    });
 }
 
 function updateArrows(sectionKey) {

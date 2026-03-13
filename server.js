@@ -77,11 +77,31 @@ app.use(session({
   },
 }));
 
-const { router: apiRouter } = require('./routes/api');
+const { router: apiRouter, runLoadJob } = require('./routes/api');
 const pagesRouter = require('./routes/pages');
+const db = require('./db/database');
 
 app.use('/api', apiRouter);
 app.use('/', pagesRouter);
+
+// ── Background refresh scheduler ─────────────────────────────────────────────
+// Periodically re-fetches Steam data and rebuilds recommendations for active users.
+// Staggered 30s apart to avoid hammering the Steam API.
+const REFRESH_INTERVAL_MS = (parseFloat(process.env.REFRESH_INTERVAL_HOURS) || 24) * 60 * 60 * 1000;
+
+async function runScheduledRefresh() {
+  const users = db.getActiveUsers(30); // active in last 30 days
+  if (!users.length) return;
+  console.log(`[refresh] Scheduled refresh starting for ${users.length} user(s)`);
+  for (let i = 0; i < users.length; i++) {
+    if (i > 0) await new Promise(r => setTimeout(r, 30_000));
+    console.log(`[refresh] Refreshing ${users[i]} (${i + 1}/${users.length})`);
+    runLoadJob(users[i]);
+  }
+}
+
+setInterval(runScheduledRefresh, REFRESH_INTERVAL_MS).unref();
+console.log(`[refresh] Background refresh scheduled every ${process.env.REFRESH_INTERVAL_HOURS || 24}h`);
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`ShelfLife running on http://0.0.0.0:${PORT}`);

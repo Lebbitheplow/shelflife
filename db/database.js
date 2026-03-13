@@ -58,6 +58,16 @@ db.exec(`
 `);
 
 db.exec(`
+  CREATE TABLE IF NOT EXISTS dismissals (
+    steam_id TEXT NOT NULL,
+    appid INTEGER NOT NULL,
+    dismissed_at INTEGER NOT NULL,
+    PRIMARY KEY (steam_id, appid)
+  );
+  CREATE INDEX IF NOT EXISTS idx_dismissals_steam ON dismissals(steam_id);
+`);
+
+db.exec(`
   CREATE TABLE IF NOT EXISTS user_achievements (
     steam_id TEXT NOT NULL,
     appid INTEGER NOT NULL,
@@ -72,6 +82,7 @@ db.exec(`
 try { db.exec('ALTER TABLE game_metadata ADD COLUMN igdb_id INTEGER'); } catch {}
 try { db.exec('ALTER TABLE game_metadata ADD COLUMN igdb_collection INTEGER'); } catch {}
 try { db.exec('ALTER TABLE game_metadata ADD COLUMN esrb_rating TEXT'); } catch {}
+try { db.exec('ALTER TABLE user_profile ADD COLUMN last_active INTEGER'); } catch {}
 
 // Game metadata
 function getGameMetadata(appid) {
@@ -164,13 +175,28 @@ function isProfileFresh(steamId, ttlHours = 6) {
   return (Date.now() / 1000 - row.fetched_at) < ttlHours * 3600;
 }
 
-// Rec cache
+function updateLastActive(steamId) {
+  db.prepare('UPDATE user_profile SET last_active = ? WHERE steam_id = ?')
+    .run(Math.floor(Date.now() / 1000), String(steamId));
+}
+
+function getActiveUsers(sinceDays = 30) {
+  const since = Math.floor(Date.now() / 1000) - sinceDays * 86400;
+  return db.prepare('SELECT steam_id FROM user_profile WHERE last_active >= ?')
+    .all(since).map(r => r.steam_id);
+}
+
+// Rec cache — no TTL; background refresh job handles periodic updates
 function getRecCache(steamId) {
   const row = db.prepare('SELECT * FROM rec_cache WHERE steam_id = ?').get(steamId);
   if (!row) return null;
-  const age = Date.now() / 1000 - row.built_at;
-  if (age > 6 * 3600) return null; // 6 hour TTL
   return JSON.parse(row.pools);
+}
+
+function getRecCacheAge(steamId) {
+  const row = db.prepare('SELECT built_at FROM rec_cache WHERE steam_id = ?').get(steamId);
+  if (!row) return null;
+  return Math.floor(Date.now() / 1000) - row.built_at;
 }
 
 function setRecCache(steamId, pools) {
@@ -244,6 +270,22 @@ function upsertTrailerDetails(appid, { trailer_mp4, short_description, esrb_rati
     .run(trailer_mp4 ?? null, short_description || null, esrb_rating || null, appid);
 }
 
+// Dismissals
+function addDismissal(steamId, appid) {
+  db.prepare('INSERT OR IGNORE INTO dismissals (steam_id, appid, dismissed_at) VALUES (?, ?, ?)')
+    .run(String(steamId), Number(appid), Math.floor(Date.now() / 1000));
+}
+
+function removeDismissal(steamId, appid) {
+  db.prepare('DELETE FROM dismissals WHERE steam_id = ? AND appid = ?')
+    .run(String(steamId), Number(appid));
+}
+
+function getDismissals(steamId) {
+  const rows = db.prepare('SELECT appid FROM dismissals WHERE steam_id = ?').all(String(steamId));
+  return new Set(rows.map(r => r.appid));
+}
+
 // User achievements
 function setAchievements(steamId, appid, total, unlocked) {
   db.prepare(`
@@ -269,9 +311,10 @@ module.exports = {
   getGameMetadata, setGameMetadata, getGameMetadataBatch, isMetadataFresh,
   setIgdbData, getUnenrichedAppids,
   getUserLibrary, setUserLibrary,
-  getUserProfile, setUserProfile, isProfileFresh,
-  getRecCache, setRecCache, clearRecCache,
+  getUserProfile, setUserProfile, isProfileFresh, updateLastActive, getActiveUsers,
+  getRecCache, setRecCache, clearRecCache, getRecCacheAge,
   getLoadStatus, setLoadStatus, clearLoadStatus,
   updateTrailerUrl, updateGameDetails, upsertTrailerDetails,
   setAchievements, getAchievements, isAchievementFresh,
+  addDismissal, removeDismissal, getDismissals,
 };
