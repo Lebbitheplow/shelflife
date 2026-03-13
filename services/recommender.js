@@ -538,14 +538,17 @@ function buildRecommendations(steamId, library, allMetadata, reviewedAppids = ne
   return pools;
 }
 
-function samplePools(pools) {
+function samplePools(pools, dismissedAppids = new Set()) {
+  function filterPool(arr) {
+    return dismissedAppids.size ? arr.filter(g => !dismissedAppids.has(g.appid)) : arr;
+  }
   return {
-    top20: pools.top20,
-    topPicks: tieredSample(pools.topPicks, 72),
-    neverTouched: tieredSample(pools.neverTouched, 60),
-    almostStarted: tieredSample(pools.almostStarted, 60),
+    top20: filterPool(pools.top20),
+    topPicks: tieredSample(filterPool(pools.topPicks), 72),
+    neverTouched: tieredSample(filterPool(pools.neverTouched), 60),
+    almostStarted: tieredSample(filterPool(pools.almostStarted), 60),
     byGenre: Object.fromEntries(
-      Object.entries(pools.byGenre).map(([g, games]) => [g, tieredSample(games, 60)])
+      Object.entries(pools.byGenre).map(([g, games]) => [g, tieredSample(filterPool(games), 60)])
     ),
     genres: pools.genres,
     stats: pools.stats,

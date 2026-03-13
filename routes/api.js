@@ -143,6 +143,23 @@ router.post('/resolve', async (req, res) => {
   }
 });
 
+// Dismiss a game (hide it from recommendations without affecting scoring)
+router.post('/dismiss', (req, res) => {
+  const { appid, steamId } = req.body;
+  if (!steamId || !/^\d+$/.test(String(steamId))) return res.status(400).json({ error: 'Invalid steamId' });
+  if (!appid || isNaN(Number(appid))) return res.status(400).json({ error: 'Invalid appid' });
+  db.addDismissal(steamId, Number(appid));
+  res.json({ success: true });
+});
+
+router.delete('/dismiss', (req, res) => {
+  const { appid, steamId } = req.body;
+  if (!steamId || !/^\d+$/.test(String(steamId))) return res.status(400).json({ error: 'Invalid steamId' });
+  if (!appid || isNaN(Number(appid))) return res.status(400).json({ error: 'Invalid appid' });
+  db.removeDismissal(steamId, Number(appid));
+  res.json({ success: true });
+});
+
 // Get recommendations (sampled from cached pools)
 router.get('/recommendations/:steamId', async (req, res) => {
   const { steamId } = req.params;
@@ -150,7 +167,8 @@ router.get('/recommendations/:steamId', async (req, res) => {
   // Try cached pools first
   const cached = db.getRecCache(steamId);
   if (cached) {
-    return res.json(recommender.samplePools(cached));
+    const dismissed = db.getDismissals(steamId);
+    return res.json(recommender.samplePools(cached, dismissed));
   }
 
   // Check if already loading
@@ -169,9 +187,11 @@ router.get('/recommendations/:steamId', async (req, res) => {
 
 // Shuffle — just resamples from existing pools
 router.get('/shuffle/:steamId', (req, res) => {
-  const cached = db.getRecCache(req.params.steamId);
+  const { steamId } = req.params;
+  const cached = db.getRecCache(steamId);
   if (!cached) return res.status(404).json({ error: 'No recommendation data. Please reload the profile page.' });
-  res.json(recommender.samplePools(cached));
+  const dismissed = db.getDismissals(steamId);
+  res.json(recommender.samplePools(cached, dismissed));
 });
 
 // On-demand detail fetch — returns trailer_mp4 + short_description for a single game

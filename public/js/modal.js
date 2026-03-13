@@ -137,6 +137,21 @@ function openModal(game) {
   // Steam link
   document.getElementById('modal-steam-btn').href = `https://store.steampowered.com/app/${game.appid}`;
 
+  // Dismiss button
+  const actionsEl = document.getElementById('modal-actions');
+  let dismissBtn = actionsEl.querySelector('.modal-dismiss-btn');
+  if (!dismissBtn) {
+    dismissBtn = document.createElement('button');
+    dismissBtn.className = 'modal-dismiss-btn';
+    actionsEl.appendChild(dismissBtn);
+  }
+  dismissBtn.textContent = '✕ Not Interested';
+  dismissBtn.onclick = function () {
+    const card = document.querySelector(`[data-appid="${game.appid}"]`);
+    if (card) doDismiss(card, game.appid);
+    closeModal();
+  };
+
   // Media setup
   const video = document.getElementById('modal-video');
   const ytFrame = document.getElementById('modal-yt');

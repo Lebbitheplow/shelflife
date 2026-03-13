@@ -47,13 +47,15 @@ router.get('/profile/:steamId', async (req, res) => {
     }
   }
 
-  // Check if we have fresh recs
+  // Track this visit for the background refresh scheduler
+  db.updateLastActive(steamId);
+
   const cached = db.getRecCache(steamId);
   const status = db.getLoadStatus(steamId);
   const isLoading = !cached && status?.status === 'loading';
   const isError = !cached && status?.status === 'error';
 
-  // If nothing at all, kick off a load job
+  // Only kick off a load job on first visit (no cache at all)
   if (!cached && !isLoading && !isError) {
     runLoadJob(steamId);
   }
