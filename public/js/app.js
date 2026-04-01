@@ -278,7 +278,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Refresh data button
   document.getElementById('nav-refresh-btn')?.addEventListener('click', async function () {
     this.disabled = true;
-    this.textContent = 'Refreshing…';
+    this.textContent = 'Fetching…';
     try {
       await fetch(`/api/refresh/${STEAM_ID}`, { method: 'POST' });
     } catch {}
