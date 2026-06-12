@@ -1,27 +1,7 @@
-/* ShelfLife — profile page carousels, loading poll, shuffle */
+/* ShelfLife — profile page carousels, loading poll, shuffle.
+   Shared helpers (esc, toast, formatTtb, makeScrollTag) live in helpers.js. */
 
-function makeScrollTag(text, outerClass) {
-  const tag = document.createElement('span');
-  tag.className = outerClass;
-  const inner = document.createElement('span');
-  inner.className = 'scroll-inner';
-  inner.textContent = text;
-  tag.appendChild(inner);
-  setTimeout(function () {
-    const cs = getComputedStyle(tag);
-    const tagExtra = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight) +
-                     parseFloat(cs.borderLeftWidth) + parseFloat(cs.borderRightWidth);
-    const overflow = inner.getBoundingClientRect().width - (tag.getBoundingClientRect().width - tagExtra);
-    if (overflow > 1) {
-      const dist = Math.ceil(overflow) + 6;
-      const dur = Math.max(3, (dist / 40 + 2)).toFixed(1) + 's';
-      tag.style.setProperty('--tag-scroll-dist', '-' + dist + 'px');
-      tag.style.setProperty('--tag-scroll-duration', dur);
-      tag.classList.add('scroll-active');
-    }
-  }, 50);
-  return tag;
-}
+const SECTION_KEYS = ['top20', 'topPicks', 'friendsPlayed', 'neverTouched', 'almostStarted', 'byGenre'];
 
 const state = {
   data: null,
@@ -62,6 +42,22 @@ function renderCard(game) {
   ptBadge.className = 'badge badge-playtime';
   ptBadge.textContent = playtimeLabel(game.playtime);
   badges.appendChild(ptBadge);
+
+  if (game.ttb_normally) {
+    const ttbBadge = document.createElement('span');
+    ttbBadge.className = 'badge badge-ttb';
+    ttbBadge.textContent = `⏱ ${formatTtb(game.ttb_normally)}`;
+    ttbBadge.title = 'Estimated time to beat the main story';
+    badges.appendChild(ttbBadge);
+  }
+
+  if (game.friends?.count) {
+    const fBadge = document.createElement('span');
+    fBadge.className = 'badge badge-friends';
+    fBadge.textContent = `${game.friends.count} friend${game.friends.count === 1 ? '' : 's'}`;
+    fBadge.title = 'Friends who have played this';
+    badges.appendChild(fBadge);
+  }
 
   if (game.reasons?.[0]) {
     badges.appendChild(makeScrollTag(game.reasons[0], 'badge badge-reason'));
@@ -122,11 +118,13 @@ function doDismiss(cardEl, appid) {
       } else {
         cardEl.style.opacity = '';
         cardEl.style.transition = '';
+        toast("Couldn't hide that game — please try again.");
       }
     })
     .catch(() => {
       cardEl.style.opacity = '';
       cardEl.style.transition = '';
+      toast("Couldn't hide that game — check your connection.");
     });
 }
 
@@ -182,17 +180,35 @@ async function loadRecs() {
 function hydrateAll() {
   if (!state.data) return;
 
-  // Stats bar
+  // Stats bar — backlog chips
   const statsEl = document.getElementById('profile-stats');
   if (statsEl && state.data.stats) {
     const s = state.data.stats;
-    statsEl.textContent = `${s.total} games owned · ${s.neverPlayed} never played · ${s.almostStarted} barely started`;
+    const pct = s.total ? Math.round((s.neverPlayed / s.total) * 100) : 0;
+    const chips = [
+      `${s.total} games`,
+      `${s.neverPlayed} never played (${pct}%)`,
+      `${s.almostStarted} barely started`,
+    ];
+    if (s.hoursPlayed != null) chips.push(`${s.hoursPlayed.toLocaleString()}h played`);
+    if (s.backlogHours) chips.push(`~${s.backlogHours.toLocaleString()}h to clear your backlog`);
+    statsEl.innerHTML = '';
+    for (const text of chips) {
+      const chip = document.createElement('span');
+      chip.className = 'stat-chip';
+      chip.textContent = text;
+      statsEl.appendChild(chip);
+    }
   }
+
+  // Friends section only appears when friend data exists (public friends list)
+  const friendsSection = document.getElementById('section-friendsPlayed');
+  if (friendsSection) friendsSection.hidden = !state.data.friendsPlayed?.length;
 
   // Genre dropdown
   const genreSelect = document.getElementById('genre-select');
   if (genreSelect && state.data.genres?.length) {
-    genreSelect.innerHTML = state.data.genres.map(g => `<option value="${g}">${g}</option>`).join('');
+    genreSelect.innerHTML = state.data.genres.map(g => `<option value="${esc(g)}">${esc(g)}</option>`).join('');
     state.currentGenre = state.data.genres[0];
     genreSelect.addEventListener('change', () => {
       state.currentGenre = genreSelect.value;
@@ -200,7 +216,7 @@ function hydrateAll() {
     });
   }
 
-  ['top20', 'topPicks', 'neverTouched', 'almostStarted', 'byGenre'].forEach(key => {
+  SECTION_KEYS.forEach(key => {
     renderSection(key, getGamesForSection(key));
   });
 }
@@ -256,7 +272,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Update arrow states on scroll
-  ['top20', 'topPicks', 'neverTouched', 'almostStarted', 'byGenre'].forEach(key => {
+  SECTION_KEYS.forEach(key => {
     const grid = document.getElementById(`grid-${key}`);
     if (grid) grid.addEventListener('scroll', () => updateArrows(key), { passive: true });
   });
@@ -265,12 +281,17 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('shuffle-all-btn')?.addEventListener('click', async () => {
     try {
       const res = await fetch(`/api/shuffle/${STEAM_ID}`);
-      if (!res.ok) return;
+      if (!res.ok) {
+        toast("Shuffle failed — please try again.");
+        return;
+      }
       state.data = await res.json();
-      for (const key of ['topPicks', 'neverTouched', 'almostStarted', 'byGenre']) {
+      for (const key of ['topPicks', 'friendsPlayed', 'neverTouched', 'almostStarted', 'byGenre']) {
         renderSection(key, getGamesForSection(key));
       }
-    } catch {}
+    } catch {
+      toast("Shuffle failed — check your connection.");
+    }
   });
 
   loadRecs();
@@ -279,9 +300,20 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('nav-refresh-btn')?.addEventListener('click', async function () {
     this.disabled = true;
     this.textContent = 'Fetching…';
+    const reset = () => { this.disabled = false; this.textContent = '↺ Re-fetch'; };
     try {
-      await fetch(`/api/refresh/${STEAM_ID}`, { method: 'POST' });
-    } catch {}
+      const res = await fetch(`/api/refresh/${STEAM_ID}`, { method: 'POST' });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        toast(data.error || "Couldn't refresh — please try again later.");
+        reset();
+        return;
+      }
+    } catch {
+      toast("Couldn't refresh — check your connection.");
+      reset();
+      return;
+    }
     window.location.reload();
   });
 
@@ -304,7 +336,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (tasteCache.length) {
-      tasteList.innerHTML = tasteCache.map(i => `<li>${i}</li>`).join('');
+      tasteList.innerHTML = tasteCache.map(i => `<li>${esc(i)}</li>`).join('');
     } else {
       tasteList.innerHTML = '<li class="taste-empty">Play more games to build a taste profile.</li>';
     }

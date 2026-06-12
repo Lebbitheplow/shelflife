@@ -12,14 +12,14 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="ShelfLife">
   <meta name="theme-color" content="#0f0f11">
-  <link rel="stylesheet" href="/css/style.css?v=19">
+  <link rel="stylesheet" href="/css/style.css?v=<%= assetV %>">
 </head>
 <body>
   <%- include('partials/nav', { steamId }) %>
 
   <!-- Profile header -->
   <header class="profile-header">
-    <img class="profile-avatar" src="<%= profile.avatar_url %>" alt="">
+    <img class="profile-avatar" src="<%= profile.avatar_url %>" alt="<%= profile.display_name %>'s Steam avatar">
     <div class="profile-info">
       <h1 class="profile-name"><%= profile.display_name %></h1>
       <p class="profile-stats" id="profile-stats">Loading library stats...</p>
@@ -70,8 +70,8 @@
           <div class="card-grid skeleton-grid" id="grid-top20">
             <% for (let i = 0; i < 12; i++) { %><div class="card skeleton-card"></div><% } %>
           </div>
-          <button class="carousel-arrow prev" data-section="top20">❮</button>
-          <button class="carousel-arrow next" data-section="top20">❯</button>
+          <button class="carousel-arrow prev" data-section="top20" aria-label="Scroll left">❮</button>
+          <button class="carousel-arrow next" data-section="top20" aria-label="Scroll right">❯</button>
         </div>
       </div>
 
@@ -83,8 +83,22 @@
           <div class="card-grid skeleton-grid" id="grid-topPicks">
             <% for (let i = 0; i < 12; i++) { %><div class="card skeleton-card"></div><% } %>
           </div>
-          <button class="carousel-arrow prev" data-section="topPicks">❮</button>
-          <button class="carousel-arrow next" data-section="topPicks">❯</button>
+          <button class="carousel-arrow prev" data-section="topPicks" aria-label="Scroll left">❮</button>
+          <button class="carousel-arrow next" data-section="topPicks" aria-label="Scroll right">❯</button>
+        </div>
+      </div>
+
+      <!-- Hidden unless the user's friends list is public and friend data exists -->
+      <div class="section" id="section-friendsPlayed" hidden>
+        <div class="section-header">
+          <h2 class="section-title">Friends Are Playing</h2>
+        </div>
+        <div class="carousel-wrap">
+          <div class="card-grid skeleton-grid" id="grid-friendsPlayed">
+            <% for (let i = 0; i < 12; i++) { %><div class="card skeleton-card"></div><% } %>
+          </div>
+          <button class="carousel-arrow prev" data-section="friendsPlayed" aria-label="Scroll left">❮</button>
+          <button class="carousel-arrow next" data-section="friendsPlayed" aria-label="Scroll right">❯</button>
         </div>
       </div>
 
@@ -96,8 +110,8 @@
           <div class="card-grid skeleton-grid" id="grid-neverTouched">
             <% for (let i = 0; i < 12; i++) { %><div class="card skeleton-card"></div><% } %>
           </div>
-          <button class="carousel-arrow prev" data-section="neverTouched">❮</button>
-          <button class="carousel-arrow next" data-section="neverTouched">❯</button>
+          <button class="carousel-arrow prev" data-section="neverTouched" aria-label="Scroll left">❮</button>
+          <button class="carousel-arrow next" data-section="neverTouched" aria-label="Scroll right">❯</button>
         </div>
       </div>
 
@@ -109,8 +123,8 @@
           <div class="card-grid skeleton-grid" id="grid-almostStarted">
             <% for (let i = 0; i < 12; i++) { %><div class="card skeleton-card"></div><% } %>
           </div>
-          <button class="carousel-arrow prev" data-section="almostStarted">❮</button>
-          <button class="carousel-arrow next" data-section="almostStarted">❯</button>
+          <button class="carousel-arrow prev" data-section="almostStarted" aria-label="Scroll left">❮</button>
+          <button class="carousel-arrow next" data-section="almostStarted" aria-label="Scroll right">❯</button>
         </div>
       </div>
 
@@ -125,8 +139,8 @@
           <div class="card-grid skeleton-grid" id="grid-byGenre">
             <% for (let i = 0; i < 12; i++) { %><div class="card skeleton-card"></div><% } %>
           </div>
-          <button class="carousel-arrow prev" data-section="byGenre">❮</button>
-          <button class="carousel-arrow next" data-section="byGenre">❯</button>
+          <button class="carousel-arrow prev" data-section="byGenre" aria-label="Scroll left">❮</button>
+          <button class="carousel-arrow next" data-section="byGenre" aria-label="Scroll right">❯</button>
         </div>
       </div>
     </div>
@@ -136,8 +150,8 @@
 
   <!-- Detail Modal -->
   <div class="modal-backdrop" id="modal-backdrop" hidden>
-    <div class="modal" id="modal">
-      <button class="modal-close" id="modal-close">✕</button>
+    <div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <button class="modal-close" id="modal-close" aria-label="Close">✕</button>
       <!-- Hero banner (game art, fades to modal bg) -->
       <div class="modal-hero" id="modal-hero"></div>
       <!-- Body: poster art + info -->
@@ -166,8 +180,8 @@
 
   <!-- Taste Profile / Score Guide modal -->
   <div class="taste-backdrop" id="taste-backdrop" hidden>
-    <div class="taste-modal" id="taste-modal">
-      <button class="taste-modal-close" id="taste-modal-close">✕</button>
+    <div class="taste-modal" id="taste-modal" role="dialog" aria-modal="true" aria-label="Taste Profile and Score Guide">
+      <button class="taste-modal-close" id="taste-modal-close" aria-label="Close">✕</button>
       <div class="taste-modal-body">
 
         <!-- Left: user taste profile -->
@@ -245,8 +259,9 @@
     const IS_LOADING = <%= isLoading ? 'true' : 'false' %>;
   </script>
   <script src="https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js"></script>
-  <script src="/js/app.js?v=10"></script>
-  <script src="/js/modal.js?v=24"></script>
+  <script src="/js/helpers.js?v=<%= assetV %>"></script>
+  <script src="/js/app.js?v=<%= assetV %>"></script>
+  <script src="/js/modal.js?v=<%= assetV %>"></script>
   <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js');

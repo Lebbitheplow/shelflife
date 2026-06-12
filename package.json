@@ -1,17 +1,17 @@
 {
   "name": "shelflife",
-  "version": "1.2.9",
+  "version": "1.3.0",
   "description": "Steam library recommender — discover games you own but haven't played",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node --watch server.js"
+    "dev": "node --watch server.js",
+    "test": "node --test"
   },
   "dependencies": {
     "dotenv": "^16.4.5",
     "ejs": "^3.1.9",
-    "express": "^4.18.3",
-    "express-session": "^1.18.0"
+    "express": "^4.18.3"
   },
   "engines": {
     "node": ">=23.4.0"

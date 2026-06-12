@@ -1,7 +1,12 @@
 const { DatabaseSync } = require('node:sqlite');
 const path = require('path');
+const fs = require('fs');
 
-const DB_PATH = path.join(__dirname, '../data/shelflife.db');
+// SHELFLIFE_DATA_DIR lets tests point at a throwaway directory
+const DATA_DIR = process.env.SHELFLIFE_DATA_DIR || path.join(__dirname, '../data');
+fs.mkdirSync(DATA_DIR, { recursive: true });
+
+const DB_PATH = path.join(DATA_DIR, 'shelflife.db');
 const db = new DatabaseSync(DB_PATH);
 db.exec('PRAGMA journal_mode = WAL');
 db.exec('PRAGMA foreign_keys = ON');
@@ -83,6 +88,8 @@ try { db.exec('ALTER TABLE game_metadata ADD COLUMN igdb_id INTEGER'); } catch {
 try { db.exec('ALTER TABLE game_metadata ADD COLUMN igdb_collection INTEGER'); } catch {}
 try { db.exec('ALTER TABLE game_metadata ADD COLUMN esrb_rating TEXT'); } catch {}
 try { db.exec('ALTER TABLE user_profile ADD COLUMN last_active INTEGER'); } catch {}
+try { db.exec('ALTER TABLE game_metadata ADD COLUMN ttb_normally INTEGER'); } catch {}
+try { db.exec('ALTER TABLE game_metadata ADD COLUMN ttb_completely INTEGER'); } catch {}
 
 // Game metadata
 function getGameMetadata(appid) {
@@ -190,7 +197,13 @@ function getActiveUsers(sinceDays = 30) {
 function getRecCache(steamId) {
   const row = db.prepare('SELECT * FROM rec_cache WHERE steam_id = ?').get(steamId);
   if (!row) return null;
-  return JSON.parse(row.pools);
+  try {
+    return JSON.parse(row.pools);
+  } catch {
+    // Corrupt cache row — drop it so the next visit rebuilds instead of crashing every page
+    clearRecCache(steamId);
+    return null;
+  }
 }
 
 function getRecCacheAge(steamId) {
@@ -248,6 +261,32 @@ function getUnenrichedAppids(appids) {
     ).all(...chunk).map(r => r.appid));
   }
   return results;
+}
+
+// Time-to-beat (IGDB game_time_to_beats) — ttb values are seconds, -1 = looked up, no data
+function getTtbCandidates(appids) {
+  if (!appids.length) return [];
+  const CHUNK = 500;
+  const results = [];
+  for (let i = 0; i < appids.length; i += CHUNK) {
+    const chunk = appids.slice(i, i + CHUNK);
+    const placeholders = chunk.map(() => '?').join(',');
+    results.push(...db.prepare(
+      `SELECT appid, igdb_id FROM game_metadata
+       WHERE appid IN (${placeholders}) AND igdb_id > 0 AND ttb_normally IS NULL`
+    ).all(...chunk));
+  }
+  return results;
+}
+
+function setTimeToBeat(appid, normally, completely) {
+  db.prepare('UPDATE game_metadata SET ttb_normally = ?, ttb_completely = ? WHERE appid = ?')
+    .run(normally, completely, appid);
+}
+
+function healthCheck() {
+  db.prepare('SELECT 1').get();
+  return true;
 }
 
 function updateGameDetails(appid, { trailer_mp4, short_description, esrb_rating }) {
@@ -317,4 +356,6 @@ module.exports = {
   updateTrailerUrl, updateGameDetails, upsertTrailerDetails,
   setAchievements, getAchievements, isAchievementFresh,
   addDismissal, removeDismissal, getDismissals,
+  getTtbCandidates, setTimeToBeat,
+  healthCheck,
 };

@@ -190,6 +190,42 @@ async function getPositiveReviews(steamId) {
   return appids;
 }
 
+// Fetch the user's friend list — empty array if the friends list is private
+async function getFriendList(steamId) {
+  try {
+    const url = `${STEAM_API}/ISteamUser/GetFriendList/v1/?key=${STEAM_API_KEY()}&steamid=${steamId}&relationship=friend`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
+    if (!res.ok) return []; // Steam returns 401 for private friends lists
+    const json = await res.json();
+    return (json.friendslist?.friends || []).map(f => f.steamid);
+  } catch {
+    return [];
+  }
+}
+
+// Build appid → { count, topMinutes } across the user's friends, counting only
+// games a friend has genuinely played (2+ hours). Capped to keep the load job
+// bounded; friends with private libraries contribute nothing and are skipped.
+const FRIEND_PLAYED_MIN_MINUTES = 120;
+
+async function getFriendsPlaytimes(steamId, cap = 25) {
+  const friends = (await getFriendList(steamId)).slice(0, cap);
+  const map = {};
+  for (const friendId of friends) {
+    try {
+      const games = await getOwnedGames(friendId);
+      for (const g of games) {
+        if ((g.playtime_forever || 0) < FRIEND_PLAYED_MIN_MINUTES) continue;
+        const entry = map[g.appid] || (map[g.appid] = { count: 0, topMinutes: 0 });
+        entry.count++;
+        if (g.playtime_forever > entry.topMinutes) entry.topMinutes = g.playtime_forever;
+      }
+    } catch { /* private library or API blip — skip this friend */ }
+    await sleep(150); // gentle rate limiting
+  }
+  return map;
+}
+
 // Fetch achievement progress for a single game — returns { total, unlocked } or null
 async function getPlayerAchievements(steamId, appid) {
   try {
@@ -207,4 +243,4 @@ async function getPlayerAchievements(steamId, appid) {
   }
 }
 
-module.exports = { resolveToSteamId, getPlayerSummary, getOwnedGames, fetchAppDetails, fetchMetadataBatch, getPositiveReviews, getPlayerAchievements };
+module.exports = { resolveToSteamId, getPlayerSummary, getOwnedGames, fetchAppDetails, fetchMetadataBatch, getPositiveReviews, getPlayerAchievements, getFriendList, getFriendsPlaytimes };

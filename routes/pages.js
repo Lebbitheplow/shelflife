@@ -57,7 +57,7 @@ router.get('/profile/:steamId', async (req, res) => {
 
   // Only kick off a load job on first visit (no cache at all)
   if (!cached && !isLoading && !isError) {
-    runLoadJob(steamId);
+    runLoadJob(steamId).catch(err => console.error('[profile] load job failed:', err));
   }
 
   res.render('profile', {
@@ -66,7 +66,6 @@ router.get('/profile/:steamId', async (req, res) => {
     isLoading: isLoading || (!cached && !isError),
     isError,
     errorMessage: isError ? status.message : null,
-    stats: cached ? JSON.parse('{}') : null,
   });
 });
 

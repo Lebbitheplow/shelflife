@@ -48,6 +48,23 @@ function openModal(game) {
     : `${Math.floor(game.playtime / 60)}h played`;
   ptEl.appendChild(ptBadge);
 
+  if (game.ttb_normally) {
+    const ttbBadge = document.createElement('span');
+    ttbBadge.className = 'badge badge-ttb';
+    ttbBadge.textContent = `Main story ${formatTtb(game.ttb_normally)}`;
+    if (game.ttb_completely) ttbBadge.title = `Completionist: ${formatTtb(game.ttb_completely)}`;
+    ptEl.appendChild(ttbBadge);
+  }
+
+  if (game.friends?.count) {
+    const fBadge = document.createElement('span');
+    fBadge.className = 'badge badge-friends';
+    const topHours = Math.floor((game.friends.topMinutes || 0) / 60);
+    fBadge.textContent = `${game.friends.count} friend${game.friends.count === 1 ? '' : 's'} played this`
+      + (topHours >= 1 ? ` · top ${topHours}h` : '');
+    ptEl.appendChild(fBadge);
+  }
+
   // Ratings
   const ratingsEl = document.getElementById('modal-ratings');
   ratingsEl.innerHTML = '';
@@ -167,6 +184,7 @@ function openModal(game) {
   // Poster + hero background — both use the same header art
   const artUrl = game.header_image || `https://cdn.akamai.steamstatic.com/steam/apps/${game.appid}/header.jpg`;
   poster.src = artUrl;
+  poster.alt = game.name;
   modalHero.style.backgroundImage = `url('${artUrl}')`;
 
   function loadTrailer(url) {
@@ -242,7 +260,9 @@ function openModal(game) {
           }
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        if (needsTrailer && needsDesc) toast("Couldn't load extra details for this game.");
+      });
   }
 
   backdrop.hidden = false;
@@ -294,7 +314,7 @@ function showReasonsPopup(anchor, reasons, tier) {
       <button class="score-reasons-close" aria-label="Close">×</button>
     </div>
     <ul class="score-reasons-list">
-      ${reasons.map(r => `<li>${r}</li>`).join('')}
+      ${reasons.map(r => `<li>${esc(r)}</li>`).join('')}
     </ul>`;
   reasonsPopup.querySelector('.score-reasons-close').addEventListener('click', (e) => {
     e.stopPropagation();

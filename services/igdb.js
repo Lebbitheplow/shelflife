@@ -122,4 +122,43 @@ async function enrichLibrary(appids) {
   console.log(`[igdb] Enrichment complete — ${matched}/${metaList.length} franchise matches`);
 }
 
-module.exports = { enrichLibrary };
+// Fetch main-story / completionist times for games already matched to an IGDB id.
+// Values are stored in seconds; -1 marks "looked up, IGDB has no data" so we
+// don't re-query on every load (same sentinel pattern as enrichLibrary).
+async function fetchTimeToBeat(appids) {
+  if (!CLIENT_ID() || !CLIENT_SECRET()) return;
+
+  const candidates = db.getTtbCandidates(appids);
+  if (!candidates.length) return;
+  console.log(`[igdb] Fetching time-to-beat for ${candidates.length} games...`);
+
+  let found = 0;
+  for (const batch of chunk(candidates, 100)) {
+    try {
+      const ids = batch.map(c => c.igdb_id).join(',');
+      const results = await igdbQuery(
+        'game_time_to_beats',
+        `fields game_id,normally,completely; where game_id = (${ids}); limit 500;`
+      );
+
+      const byGameId = new Map();
+      for (const r of results) {
+        if (!byGameId.has(r.game_id)) byGameId.set(r.game_id, r);
+      }
+
+      for (const c of batch) {
+        const r = byGameId.get(c.igdb_id);
+        db.setTimeToBeat(c.appid, r?.normally ?? -1, r?.completely ?? -1);
+        if (r?.normally) found++;
+      }
+    } catch (err) {
+      console.warn('[igdb] Time-to-beat batch error:', err.message);
+    }
+
+    await sleep(300); // ~3 req/sec, well under the 4/sec rate limit
+  }
+
+  console.log(`[igdb] Time-to-beat complete — ${found}/${candidates.length} matches`);
+}
+
+module.exports = { enrichLibrary, fetchTimeToBeat };

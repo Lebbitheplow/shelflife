@@ -10,7 +10,6 @@ services:
     environment:
       # ── Required ──────────────────────────────────────────────────
       - STEAM_API_KEY=your_steam_web_api_key_here
-      - SESSION_SECRET=change_this_to_a_long_random_string
       # ── Optional ──────────────────────────────────────────────────
       - YOUTUBE_API_KEY=your_youtube_data_api_v3_key_here
       - PORT=3233

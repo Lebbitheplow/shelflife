@@ -20,7 +20,9 @@ ShelfLife connects to your Steam library and surfaces personalized picks from yo
 - **Top Picks** — scored recommendations based on your playtime patterns, tags, developers, and Steam reviews
 - **Never Touched** — games you own but have zero playtime
 - **Almost Started** — games with under 30 minutes played
+- **Friends Are Playing** — games your friends play that you've never launched (when your friends list is public)
 - **By Genre** — browse your backlog filtered by genre
+- **Time to beat** — IGDB main-story estimates on each card, plus total hours to clear your backlog
 - **Detail Modal** — game art, trailer video (Steam HLS or YouTube fallback), ratings, tags, and why it was recommended
 - **Personalized reasons** — "Because you loved X", "More from Y (you loved Z)", franchise detection
 - **Mobile friendly** — responsive layout down to 320px
@@ -32,7 +34,7 @@ ShelfLife connects to your Steam library and surfaces personalized picks from yo
 - **Database**: SQLite via Node.js built-in `node:sqlite` (metadata cache, library cache, rec cache)
 - **APIs**: Steam Web API, SteamSpy, Steam Store appdetails, YouTube Data API v3
 - **Video**: HLS.js for Steam HLS trailers; YouTube iframe embed as fallback for games with no Steam trailer
-- **Auth**: Session-based (no login required — just paste your Steam profile URL)
+- **Auth**: None required — just paste your Steam profile URL (must be public)
 
 ## Setup
 
@@ -55,9 +57,10 @@ Edit `.env` with your values:
 
 ```env
 STEAM_API_KEY=your_steam_web_api_key_here
-SESSION_SECRET=change_this_to_a_random_string
 PORT=3233
 YOUTUBE_API_KEY=your_youtube_data_api_v3_key_here
+IGDB_CLIENT_ID=your_twitch_client_id_here
+IGDB_CLIENT_SECRET=your_twitch_client_secret_here
 ```
 
 ### Run
@@ -108,8 +111,8 @@ docker compose pull && docker compose up -d
 | Variable | Description |
 |---|---|
 | `STEAM_API_KEY` | Steam Web API key (required) |
-| `SESSION_SECRET` | Random string for signing session cookies |
 | `PORT` | Port to listen on (default: 3233) |
+| `IGDB_CLIENT_ID` / `IGDB_CLIENT_SECRET` | Twitch/IGDB credentials (optional) — enables franchise detection and time-to-beat estimates |
 | `YOUTUBE_API_KEY` | YouTube Data API v3 key (optional) — falls back to YouTube search for games with no Steam trailer. Requires an **IP address** restriction (not HTTP referrer) since requests are made server-side. |
 
 ## Notes

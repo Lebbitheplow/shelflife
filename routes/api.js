@@ -42,20 +42,15 @@ async function runLoadJob(steamId) {
     db.setUserLibrary(steamId, library);
     db.setLoadStatus(steamId, 'loading', `Fetching game details (0 / ${library.length})...`, 0, library.length);
 
-    // Only fetch metadata for unplayed/barely-played games for recommendations
-    // but fetch all for profile building (we need playtime context)
-    const allAppids = library.map(g => g.appid);
     // Prioritize unplayed games first for faster useful results
     const unplayed = library.filter(g => g.playtime_forever < 120).map(g => g.appid);
     const played = library.filter(g => g.playtime_forever >= 120).map(g => g.appid);
     const ordered = [...unplayed, ...played];
 
-    const fetched = [];
     let count = 0;
 
     for (const appid of ordered) {
-      const meta = await steamService.fetchAppDetails(appid);
-      if (meta) fetched.push(meta);
+      await steamService.fetchAppDetails(appid);
       count++;
       if (count % 10 === 0) {
         db.setLoadStatus(steamId, 'loading', `Fetching game details (${count} / ${ordered.length})...`, count, ordered.length);
@@ -67,6 +62,9 @@ async function runLoadJob(steamId) {
 
     db.setLoadStatus(steamId, 'loading', 'Looking up game series data...', ordered.length, ordered.length);
     await igdb.enrichLibrary(ordered);
+
+    db.setLoadStatus(steamId, 'loading', 'Looking up completion times...', ordered.length, ordered.length);
+    await igdb.fetchTimeToBeat(ordered);
 
     // Fetch achievement data for games the user has seriously played (10+ hours, top 50)
     const ACHIEVEMENT_MIN_MINUTES = 600; // 10 hours
@@ -92,11 +90,17 @@ async function runLoadJob(steamId) {
       }
     }
 
+    db.setLoadStatus(steamId, 'loading', 'Checking what your friends play...', ordered.length, ordered.length);
+    const friendsMap = await steamService.getFriendsPlaytimes(steamId);
+
     db.setLoadStatus(steamId, 'loading', 'Building recommendations...', ordered.length, ordered.length);
 
     const libRows = db.getUserLibrary(steamId);
     const achievementMap = db.getAchievements(steamId);
-    recommender.buildRecommendations(steamId, libRows, fetched, reviewedAppids, achievementMap);
+    // Re-read metadata from the DB so IGDB enrichment (franchise + time-to-beat)
+    // written above is reflected — the rows captured during the fetch loop predate it
+    const allMetadata = db.getGameMetadataBatch(ordered);
+    recommender.buildRecommendations(steamId, libRows, allMetadata, reviewedAppids, achievementMap, friendsMap);
 
     db.setLoadStatus(steamId, 'done', 'Ready', ordered.length, ordered.length);
   } catch (err) {
@@ -107,12 +111,25 @@ async function runLoadJob(steamId) {
   }
 }
 
-// Manual refresh — clears cached recs and re-triggers a full data reload
+// Manual refresh — clears cached recs and re-triggers a full data reload.
+// Cooldown stops anyone from repeatedly triggering the most expensive operation
+// in the app (minutes of Steam API calls) for an arbitrary steamId.
+const REFRESH_COOLDOWN_S = 10 * 60;
+
 router.post('/refresh/:steamId', (req, res) => {
   const { steamId } = req.params;
   if (!/^\d+$/.test(steamId)) return res.status(400).json({ error: 'Invalid steamId' });
+
+  const age = db.getRecCacheAge(steamId);
+  if (age !== null && age < REFRESH_COOLDOWN_S) {
+    const waitMin = Math.max(1, Math.ceil((REFRESH_COOLDOWN_S - age) / 60));
+    return res.status(429).json({
+      error: `Data was refreshed recently — try again in about ${waitMin} min.`,
+    });
+  }
+
   db.clearRecCache(steamId);
-  runLoadJob(steamId);
+  runLoadJob(steamId).catch(err => console.error('[refresh] load job failed:', err));
   res.json({ success: true });
 });
 
@@ -190,7 +207,7 @@ router.get('/recommendations/:steamId', async (req, res) => {
   const profile = db.getUserProfile(steamId);
   if (!profile) return res.status(404).json({ error: 'Profile not found. Please start from the home page.' });
 
-  runLoadJob(steamId); // fire-and-forget
+  runLoadJob(steamId).catch(err => console.error('[recommendations] load job failed:', err)); // fire-and-forget
   return res.status(202).json({ loading: true, message: 'Starting up...' });
 });
 
@@ -261,12 +278,12 @@ router.get('/interests/:steamId', (req, res) => {
   res.json({ interests: cached.profileSummary || [] });
 });
 
-// Genre filter
+// Genre filter — hasOwn guard so prototype keys like __proto__ can't reach tieredSample
 router.get('/genre/:steamId/:genre', (req, res) => {
   const cached = db.getRecCache(req.params.steamId);
   if (!cached) return res.status(404).json({ error: 'No data.' });
-  const games = cached.byGenre[req.params.genre] || [];
-  res.json(recommender.tieredSample ? recommender.tieredSample(games, 60) : games.slice(0, 60));
+  const games = Object.hasOwn(cached.byGenre, req.params.genre) ? cached.byGenre[req.params.genre] : [];
+  res.json(recommender.tieredSample(games, 60));
 });
 
 module.exports = { router, runLoadJob };

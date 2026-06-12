@@ -2,6 +2,19 @@ const db = require('../db/database');
 
 const ALMOST_STARTED_MAX = 120; // < 2 hours = candidate
 
+// Candidate scoring weights — per-signal caps keep any one signal from dominating
+const SCORE = {
+  FRANCHISE_BONUS: 30,
+  DEV_CAP: 15,
+  TAG_CAP: 40,
+  GENRE_CAP: 20,
+  CATEGORY_CAP: 10,
+};
+
+// Tiered sampling mix: mostly top-ranked games, with variety from lower tiers
+const SAMPLE_TOP_SHARE = 0.45;
+const SAMPLE_MID_SHARE = 0.35;
+
 function parseJSON(str, fallback = []) {
   try { return JSON.parse(str); } catch { return fallback; }
 }
@@ -109,7 +122,7 @@ function scoreGame(meta, profile, game) {
       const lovedMeta = profile._metadataMap?.[lovedGame.appid];
       if (!lovedMeta || lovedMeta.igdb_collection !== candidateCollection) continue;
       const hrs = Math.round(lovedGame.playtime_forever / 60);
-      score += 30;
+      score += SCORE.FRANCHISE_BONUS;
       reasonCandidates.push({
         text: hrs >= 5
           ? `You put ${hrs}h into ${lovedMeta.name}`
@@ -137,7 +150,7 @@ function scoreGame(meta, profile, game) {
       });
     }
   }
-  score += Math.min(devScore, 15);
+  score += Math.min(devScore, SCORE.DEV_CAP);
 
   // ── Tag overlap (IDF-weighted: rare/niche tags count more than common ones) ──
   let tagScore = 0;
@@ -155,7 +168,7 @@ function scoreGame(meta, profile, game) {
     tagScore += effective * 4;
     if (effective > bestTagW) { bestTagW = effective; bestTag = tag; }
   }
-  score += Math.min(tagScore, 40);
+  score += Math.min(tagScore, SCORE.TAG_CAP);
 
   // ── Specific game similarity (Jaccard tag overlap with loved games) ────
   // Find the loved game most similar to this candidate by shared tags.
@@ -209,7 +222,7 @@ function scoreGame(meta, profile, game) {
     genreScore += w * 5;
     if (w > bestGenreW) { bestGenreW = w; bestGenre = genre; }
   }
-  score += Math.min(genreScore, 20);
+  score += Math.min(genreScore, SCORE.GENRE_CAP);
   if (bestGenre && bestGenreW > 0.45) {
     reasonCandidates.push({ text: `Fits your ${bestGenre} preference`, priority: bestGenreW * 1.8 });
   }
@@ -224,7 +237,7 @@ function scoreGame(meta, profile, game) {
       reasonCandidates.push({ text: `You enjoy ${cat} games`, priority: w * 1.2 });
     }
   }
-  score += Math.min(catScore, 10);
+  score += Math.min(catScore, SCORE.CATEGORY_CAP);
 
   // ── Metacritic bonus ───────────────────────────────────────────────────
   if (meta.metacritic_score >= 90) {
@@ -387,7 +400,8 @@ function generateProfileSummary(profile, metadataMap, library, achievementMap = 
   return result;
 }
 
-// Tiered random sample: 45% top, 35% mid, 20% lower
+// Tiered random sample: SAMPLE_TOP_SHARE from the top third, SAMPLE_MID_SHARE
+// from the middle third, the remainder from the bottom
 function tieredSample(pool, n) {
   if (pool.length <= n) return [...pool];
   const top = pool.slice(0, Math.ceil(pool.length * 0.33));
@@ -399,8 +413,8 @@ function tieredSample(pool, n) {
     return shuffled.slice(0, Math.min(count, shuffled.length));
   }
 
-  const topN = Math.ceil(n * 0.45);
-  const midN = Math.ceil(n * 0.35);
+  const topN = Math.ceil(n * SAMPLE_TOP_SHARE);
+  const midN = Math.ceil(n * SAMPLE_MID_SHARE);
   const lowN = n - topN - midN;
 
   return [
@@ -410,7 +424,7 @@ function tieredSample(pool, n) {
   ].sort(() => Math.random() - 0.5);
 }
 
-function buildRecommendations(steamId, library, allMetadata, reviewedAppids = new Set(), achievementMap = {}) {
+function buildRecommendations(steamId, library, allMetadata, reviewedAppids = new Set(), achievementMap = {}, friendsMap = {}) {
   // achievementMap is keyed by appid string → { total, unlocked }
   const metadataMap = {};
   for (const m of allMetadata) {
@@ -469,6 +483,10 @@ function buildRecommendations(steamId, library, allMetadata, reviewedAppids = ne
       trailer_mp4: meta.trailer_mp4 === 'none' ? null : meta.trailer_mp4,
       short_description: meta.short_description,
       release_date: meta.release_date,
+      // Time-to-beat in seconds (-1 sentinel = looked up, no data → null)
+      ttb_normally: meta.ttb_normally > 0 ? meta.ttb_normally : null,
+      ttb_completely: meta.ttb_completely > 0 ? meta.ttb_completely : null,
+      friends: friendsMap[game.appid] || null,
     });
   }
 
@@ -523,17 +541,31 @@ function buildRecommendations(steamId, library, allMetadata, reviewedAppids = ne
     if (games.length >= 2) byGenre[genre] = games.slice(0, 100);
   }
 
+  // Games friends actually play, ordered by popularity among friends then match score
+  const friendsPlayed = deduped
+    .filter(g => g.friends?.count > 0)
+    .sort((a, b) => b.friends.count - a.friends.count || b.score - a.score)
+    .slice(0, 100);
+
+  const hoursPlayed = Math.round(library.reduce((sum, g) => sum + (g.playtime_forever || 0), 0) / 60);
+  const backlogKnown = neverTouched.filter(g => g.ttb_normally);
+  const backlogHours = Math.round(backlogKnown.reduce((sum, g) => sum + g.ttb_normally, 0) / 3600);
+
   const pools = {
     top20: deduped.slice(0, 20),
     topPicks: deduped.slice(0, 500),
     neverTouched: neverTouched.slice(0, 500),
     almostStarted: almostStarted.slice(0, 300),
+    friendsPlayed,
     byGenre,
     genres: Object.keys(byGenre).sort((a, b) => genreMap[b].length - genreMap[a].length),
     stats: {
       total: library.length,
       neverPlayed: neverTouched.length,
       almostStarted: almostStarted.length,
+      hoursPlayed,
+      backlogHours,
+      backlogKnownCount: backlogKnown.length,
     },
     profileSummary: generateProfileSummary(profile, metadataMap, library, achievementMap),
   };
@@ -551,6 +583,8 @@ function samplePools(pools, dismissedAppids = new Set()) {
     topPicks: tieredSample(filterPool(pools.topPicks), 72),
     neverTouched: tieredSample(filterPool(pools.neverTouched), 60),
     almostStarted: tieredSample(filterPool(pools.almostStarted), 60),
+    // Keep friend-count order rather than sampling — `|| []` covers caches built before this pool existed
+    friendsPlayed: filterPool(pools.friendsPlayed || []).slice(0, 60),
     byGenre: Object.fromEntries(
       Object.entries(pools.byGenre).map(([g, games]) => [g, tieredSample(filterPool(games), 60)])
     ),

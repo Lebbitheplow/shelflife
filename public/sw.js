@@ -1,8 +1,13 @@
-const CACHE = 'shelflife-v16';
+// Served via a route in server.js that replaces __APP_VERSION__ with the
+// package.json version, so the cache name and precache list always match the
+// asset versions the views link to.
+const CACHE = 'shelflife-__APP_VERSION__';
 const STATIC = [
-  '/css/style.css?v=18',
-  '/js/app.js?v=10',
-  '/js/modal.js?v=24',
+  '/css/style.css?v=__APP_VERSION__',
+  '/js/helpers.js?v=__APP_VERSION__',
+  '/js/app.js?v=__APP_VERSION__',
+  '/js/modal.js?v=__APP_VERSION__',
+  '/js/landing.js?v=__APP_VERSION__',
   '/favicon.svg',
   '/icons/icon.svg',
 ];
