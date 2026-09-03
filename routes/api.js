@@ -142,7 +142,8 @@ router.get('/status/:steamId', (req, res) => {
 
 // Resolve a Steam input to a steamId and kick off loading if needed
 router.post('/resolve', async (req, res) => {
-  const { input } = req.body;
+  // req.body is undefined when the request carries no parseable body (express 5)
+  const { input } = req.body || {};
   if (!input) return res.status(400).json({ error: 'No input provided' });
 
   try {
@@ -171,7 +172,7 @@ router.post('/resolve', async (req, res) => {
 
 // Dismiss a game (hide it from recommendations without affecting scoring)
 router.post('/dismiss', (req, res) => {
-  const { appid, steamId } = req.body;
+  const { appid, steamId } = req.body || {};
   if (!steamId || !/^\d+$/.test(String(steamId))) return res.status(400).json({ error: 'Invalid steamId' });
   if (!appid || isNaN(Number(appid))) return res.status(400).json({ error: 'Invalid appid' });
   db.addDismissal(steamId, Number(appid));
@@ -179,7 +180,7 @@ router.post('/dismiss', (req, res) => {
 });
 
 router.delete('/dismiss', (req, res) => {
-  const { appid, steamId } = req.body;
+  const { appid, steamId } = req.body || {};
   if (!steamId || !/^\d+$/.test(String(steamId))) return res.status(400).json({ error: 'Invalid steamId' });
   if (!appid || isNaN(Number(appid))) return res.status(400).json({ error: 'Invalid appid' });
   db.removeDismissal(steamId, Number(appid));
