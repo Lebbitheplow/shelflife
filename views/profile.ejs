@@ -1,258 +1,90 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title><%= profile.display_name %> — ShelfLife</title>
-  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <%- include('partials/head', { pageTitle: `${profile.display_name} — ShelfLife`, sheets: ['library', 'modal'] }) %>
   <link rel="manifest" href="/manifest/<%= steamId %>.json">
   <link rel="apple-touch-icon" href="/icons/icon.svg">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="ShelfLife">
-  <meta name="theme-color" content="#0f0f11">
-  <link rel="stylesheet" href="/css/style.css?v=<%= assetV %>">
 </head>
 <body>
-  <%- include('partials/nav', { steamId }) %>
-
-  <!-- Profile header -->
-  <header class="profile-header">
-    <img class="profile-avatar" src="<%= profile.avatar_url %>" alt="<%= profile.display_name %>'s Steam avatar">
-    <div class="profile-info">
-      <h1 class="profile-name"><%= profile.display_name %></h1>
-      <p class="profile-stats" id="profile-stats">Loading library stats...</p>
-    </div>
-    <button class="profile-taste-btn" id="nav-taste-btn" title="Taste Profile &amp; Score Guide" aria-label="Taste Profile">
-      <svg viewBox="0 0 32 27" xmlns="http://www.w3.org/2000/svg">
-        <path d="M16,8 C12,2 4,4 4,10 C4,17 10,21 16,25 C22,21 28,17 28,10 C28,4 20,2 16,8Z"
-              fill="rgba(16,185,129,0.22)" stroke="rgba(16,185,129,0.7)" stroke-width="1.4"/>
-        <polyline points="5,14 8,14 10,12 12,20 14,6 16,14 20,14 27,14"
-                  stroke="#10b981" stroke-width="2" fill="none"
-                  stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
-      <span>Taste Profile</span>
-    </button>
-  </header>
+  <%- include('partials/nav', { profile }) %>
 
   <main class="main-content" id="main-content">
 
     <% if (isError) { %>
     <div class="load-error">
       <p><%= errorMessage %></p>
-      <a href="/" class="btn-primary">Try Again</a>
+      <a href="/" class="btn btn-primary">Try Again</a>
     </div>
 
     <% } else if (isLoading) { %>
-    <!-- Loading state — will poll until ready -->
     <div class="loading-state" id="loading-state">
       <div class="loading-spinner"></div>
-      <p class="loading-message" id="loading-message">Loading your Steam library...</p>
-      <div class="loading-bar-wrap">
-        <div class="loading-bar" id="loading-bar" style="width:0%"></div>
-      </div>
-      <p class="loading-sub">This may take a minute on your first visit.<br>Future visits will load instantly from cache.</p>
+      <div class="loading-title">Building your shelf…</div>
+      <div class="loading-bar-wrap"><div class="loading-bar" id="loading-bar"></div></div>
+      <div class="loading-sub"><span id="loading-message">Loading your Steam library</span><br>Next visit loads from cache</div>
     </div>
 
     <% } else { %>
-    <!-- Recommendations loaded server-side on return visits — JS will hydrate -->
-    <div id="recs-container">
-      <div class="recs-toolbar">
-        <button class="shuffle-all-btn" id="shuffle-all-btn">↺ Shuffle</button>
-      </div>
-      <!-- Skeleton while JS loads recs -->
-      <div class="section">
-        <div class="section-header">
-          <h2 class="section-title">Top 20</h2>
-        </div>
-        <div class="carousel-wrap">
-          <div class="card-grid skeleton-grid" id="grid-top20">
-            <% for (let i = 0; i < 12; i++) { %><div class="card skeleton-card"></div><% } %>
-          </div>
-          <button class="carousel-arrow prev" data-section="top20" aria-label="Scroll left">❮</button>
-          <button class="carousel-arrow next" data-section="top20" aria-label="Scroll right">❯</button>
-        </div>
-      </div>
+    <!-- Spotlight hero: top pick + up-next queue (hydrated by app.js) -->
+    <section class="hero hero--skeleton" id="hero" aria-label="Top of your shelf">
+      <div class="hero-shade"></div>
+    </section>
 
-      <div class="section">
-        <div class="section-header">
-          <h2 class="section-title">Top Picks for You</h2>
-        </div>
-        <div class="carousel-wrap">
-          <div class="card-grid skeleton-grid" id="grid-topPicks">
-            <% for (let i = 0; i < 12; i++) { %><div class="card skeleton-card"></div><% } %>
-          </div>
-          <button class="carousel-arrow prev" data-section="topPicks" aria-label="Scroll left">❮</button>
-          <button class="carousel-arrow next" data-section="topPicks" aria-label="Scroll right">❯</button>
-        </div>
+    <div class="stats-row">
+      <div id="profile-stats" style="display:contents"></div>
+      <div class="stats-actions">
+        <button class="btn-taste" id="nav-taste-btn" title="Taste Profile &amp; Score Guide" type="button">
+          <svg viewBox="0 0 32 27" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <path d="M16,8 C12,2 4,4 4,10 C4,17 10,21 16,25 C22,21 28,17 28,10 C28,4 20,2 16,8Z" fill="rgba(16,185,129,0.22)" stroke="currentColor" stroke-width="1.4"/>
+            <polyline points="5,14 8,14 10,12 12,20 14,6 16,14 20,14 27,14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span>Taste Profile</span>
+        </button>
+        <button class="btn-outline" id="shuffle-all-btn" type="button">↺ Shuffle</button>
       </div>
+    </div>
 
-      <!-- Hidden unless the user's friends list is public and friend data exists -->
-      <div class="section" id="section-friendsPlayed" hidden>
-        <div class="section-header">
-          <h2 class="section-title">Friends Are Playing</h2>
-        </div>
-        <div class="carousel-wrap">
-          <div class="card-grid skeleton-grid" id="grid-friendsPlayed">
-            <% for (let i = 0; i < 12; i++) { %><div class="card skeleton-card"></div><% } %>
-          </div>
-          <button class="carousel-arrow prev" data-section="friendsPlayed" aria-label="Scroll left">❮</button>
-          <button class="carousel-arrow next" data-section="friendsPlayed" aria-label="Scroll right">❯</button>
-        </div>
+    <div class="tabs" role="tablist" aria-label="Recommendation source">
+      <button class="tab" role="tab" id="tab-shelf" aria-selected="true" aria-controls="panel-shelf" data-tab="shelf">My Shelf</button>
+      <button class="tab" role="tab" id="tab-store" aria-selected="false" aria-controls="panel-store" data-tab="store">Steam Store</button>
+    </div>
+
+    <div id="panel-shelf" role="tabpanel" aria-labelledby="tab-shelf">
+      <%- include('partials/section', { key: 'topPicks', title: 'Top Picks for You' }) %>
+      <%- include('partials/section', { key: 'friendsPlayed', title: 'Friends Are Playing', hidden: true }) %>
+      <%- include('partials/section', { key: 'neverTouched', title: 'Never Touched' }) %>
+      <%- include('partials/section', { key: 'almostStarted', title: 'Almost Started' }) %>
+      <%- include('partials/section', { key: 'byGenre', title: 'By Genre', control: '<select class="genre-select" id="genre-select" aria-label="Genre"></select>' }) %>
+    </div>
+
+    <div id="panel-store" role="tabpanel" aria-labelledby="tab-store" hidden>
+      <p class="tab-note" id="store-note">GAMES YOU DON'T OWN, RANKED AGAINST YOUR TASTE · PRICES FROM THE STEAM STORE</p>
+      <div class="loading-state loading-state--inline" id="store-loading" hidden>
+        <div class="loading-spinner"></div>
+        <div class="loading-title">Browsing the Steam store…</div>
+        <div class="loading-bar-wrap"><div class="loading-bar" id="store-loading-bar"></div></div>
+        <div class="loading-sub"><span id="store-loading-message">Starting</span><br>This runs once, then refreshes every 12 hours</div>
       </div>
-
-      <div class="section">
-        <div class="section-header">
-          <h2 class="section-title">Never Touched</h2>
-        </div>
-        <div class="carousel-wrap">
-          <div class="card-grid skeleton-grid" id="grid-neverTouched">
-            <% for (let i = 0; i < 12; i++) { %><div class="card skeleton-card"></div><% } %>
-          </div>
-          <button class="carousel-arrow prev" data-section="neverTouched" aria-label="Scroll left">❮</button>
-          <button class="carousel-arrow next" data-section="neverTouched" aria-label="Scroll right">❯</button>
-        </div>
+      <div class="load-error" id="store-error" hidden>
+        <p id="store-error-message"></p>
+        <button class="btn btn-primary" id="store-retry-btn" type="button">Try Again</button>
       </div>
-
-      <div class="section">
-        <div class="section-header">
-          <h2 class="section-title">Almost Started</h2>
-        </div>
-        <div class="carousel-wrap">
-          <div class="card-grid skeleton-grid" id="grid-almostStarted">
-            <% for (let i = 0; i < 12; i++) { %><div class="card skeleton-card"></div><% } %>
-          </div>
-          <button class="carousel-arrow prev" data-section="almostStarted" aria-label="Scroll left">❮</button>
-          <button class="carousel-arrow next" data-section="almostStarted" aria-label="Scroll right">❯</button>
-        </div>
-      </div>
-
-      <div class="section" id="section-genre">
-        <div class="section-header">
-          <h2 class="section-title">By Genre</h2>
-          <div class="section-controls">
-            <select class="genre-select" id="genre-select"></select>
-          </div>
-        </div>
-        <div class="carousel-wrap">
-          <div class="card-grid skeleton-grid" id="grid-byGenre">
-            <% for (let i = 0; i < 12; i++) { %><div class="card skeleton-card"></div><% } %>
-          </div>
-          <button class="carousel-arrow prev" data-section="byGenre" aria-label="Scroll left">❮</button>
-          <button class="carousel-arrow next" data-section="byGenre" aria-label="Scroll right">❯</button>
-        </div>
+      <div id="store-sections" hidden>
+        <%- include('partials/section', { key: 'storePicks', title: 'Picked For You', sub: '' }) %>
+        <%- include('partials/section', { key: 'storeSale', title: 'On Sale Now' }) %>
+        <%- include('partials/section', { key: 'storeFree', title: 'Free To Play', hidden: true }) %>
       </div>
     </div>
     <% } %>
 
   </main>
 
-  <!-- Detail Modal -->
-  <div class="modal-backdrop" id="modal-backdrop" hidden>
-    <div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-      <button class="modal-close" id="modal-close" aria-label="Close">✕</button>
-      <!-- Hero banner (game art, fades to modal bg) -->
-      <div class="modal-hero" id="modal-hero"></div>
-      <!-- Body: poster art + info -->
-      <div class="modal-body">
-        <img class="modal-poster" id="modal-poster" src="" alt="">
-        <div class="modal-info">
-          <h2 class="modal-title" id="modal-title"></h2>
-          <div class="modal-meta" id="modal-meta"></div>
-          <div class="modal-playtime" id="modal-playtime"></div>
-          <div class="modal-ratings" id="modal-ratings"></div>
-          <div class="modal-reasons" id="modal-reasons"></div>
-          <div class="modal-tags" id="modal-tags"></div>
-          <p class="modal-desc" id="modal-desc"></p>
-          <div class="modal-actions" id="modal-actions">
-            <a class="modal-steam-btn" id="modal-steam-btn" href="#" target="_blank" rel="noopener">Open in Steam</a>
-          </div>
-        </div>
-      </div>
-      <!-- Trailer (full width, below info) -->
-      <div class="modal-trailer" id="modal-trailer">
-        <video class="modal-video" id="modal-video" muted loop playsinline controls></video>
-        <iframe class="modal-yt" id="modal-yt" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>
-      </div>
-    </div>
-  </div>
-
-  <!-- Taste Profile / Score Guide modal -->
-  <div class="taste-backdrop" id="taste-backdrop" hidden>
-    <div class="taste-modal" id="taste-modal" role="dialog" aria-modal="true" aria-label="Taste Profile and Score Guide">
-      <button class="taste-modal-close" id="taste-modal-close" aria-label="Close">✕</button>
-      <div class="taste-modal-body">
-
-        <!-- Left: user taste profile -->
-        <div class="taste-modal-left">
-          <h3 class="taste-modal-heading">Your Taste Profile</h3>
-          <ul class="taste-interests-list" id="taste-interests-list">
-            <li class="taste-loading">Loading…</li>
-          </ul>
-        </div>
-
-        <!-- Right: shelf score color guide -->
-        <div class="taste-modal-right">
-          <h3 class="taste-modal-heading">Shelf Score Guide</h3>
-          <p class="taste-guide-intro">The Shelf Score shows how well a game matches your personal library and taste. Click any badge to see why.</p>
-          <ul class="taste-guide-list">
-            <li>
-              <div class="taste-guide-badge taste-guide-badge--top">
-                <svg viewBox="0 0 32 27" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M16,8 C12,2 4,4 4,10 C4,17 10,21 16,25 C22,21 28,17 28,10 C28,4 20,2 16,8Z" fill="rgba(16,185,129,0.22)" stroke="rgba(16,185,129,0.6)" stroke-width="1.2"/>
-                  <polyline points="5,14 8,14 10,12 12,20 14,6 16,14 20,14 27,14" stroke="#10b981" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-                <span>80–100</span>
-              </div>
-              <div class="taste-guide-desc"><strong>Outstanding match</strong> — shares your favourite genres, beloved developers, and niche taste.</div>
-            </li>
-            <li>
-              <div class="taste-guide-badge taste-guide-badge--high">
-                <svg viewBox="0 0 32 27" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M16,8 C12,2 4,4 4,10 C4,17 10,21 16,25 C22,21 28,17 28,10 C28,4 20,2 16,8Z" fill="rgba(34,197,94,0.18)" stroke="rgba(34,197,94,0.55)" stroke-width="1.2"/>
-                  <polyline points="5,14 8,14 10,12 12,20 14,6 16,14 20,14 27,14" stroke="#22c55e" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-                <span>60–79</span>
-              </div>
-              <div class="taste-guide-desc"><strong>Strong match</strong> — aligns well with your play history and genre preferences.</div>
-            </li>
-            <li>
-              <div class="taste-guide-badge taste-guide-badge--mid">
-                <svg viewBox="0 0 32 27" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M16,8 C12,2 4,4 4,10 C4,17 10,21 16,25 C22,21 28,17 28,10 C28,4 20,2 16,8Z" fill="rgba(234,179,8,0.18)" stroke="rgba(234,179,8,0.55)" stroke-width="1.2"/>
-                  <polyline points="5,14 8,14 10,12 12,20 14,6 16,14 20,14 27,14" stroke="#d4a017" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-                <span>40–59</span>
-              </div>
-              <div class="taste-guide-desc"><strong>Decent match</strong> — some elements overlap your taste; could be a pleasant surprise.</div>
-            </li>
-            <li>
-              <div class="taste-guide-badge taste-guide-badge--low">
-                <svg viewBox="0 0 32 27" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M16,8 C12,2 4,4 4,10 C4,17 10,21 16,25 C22,21 28,17 28,10 C28,4 20,2 16,8Z" fill="rgba(249,115,22,0.18)" stroke="rgba(249,115,22,0.55)" stroke-width="1.2"/>
-                  <polyline points="5,14 8,14 10,12 12,20 14,6 16,14 20,14 27,14" stroke="#f97316" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-                <span>20–39</span>
-              </div>
-              <div class="taste-guide-desc"><strong>Partial match</strong> — limited overlap with your profile; niche pick.</div>
-            </li>
-            <li>
-              <div class="taste-guide-badge taste-guide-badge--none">
-                <svg viewBox="0 0 32 27" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M16,8 C12,2 4,4 4,10 C4,17 10,21 16,25 C22,21 28,17 28,10 C28,4 20,2 16,8Z" fill="rgba(239,68,68,0.18)" stroke="rgba(239,68,68,0.55)" stroke-width="1.2"/>
-                  <polyline points="5,14 8,14 10,12 12,20 14,6 16,14 20,14 27,14" stroke="#ef4444" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-                <span>&lt;20</span>
-              </div>
-              <div class="taste-guide-desc"><strong>Weak match</strong> — in your library but doesn't reflect your usual taste.</div>
-            </li>
-          </ul>
-        </div>
-
-      </div>
-    </div>
-  </div>
+  <%- include('partials/detail-modal') %>
+  <%- include('partials/taste-modal') %>
 
   <script>
     const STEAM_ID = '<%= steamId %>';
@@ -260,12 +92,12 @@
   </script>
   <script src="https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js"></script>
   <script src="/js/helpers.js?v=<%= assetV %>"></script>
-  <script src="/js/app.js?v=<%= assetV %>"></script>
+  <script src="/js/cards.js?v=<%= assetV %>"></script>
   <script src="/js/modal.js?v=<%= assetV %>"></script>
+  <script src="/js/app.js?v=<%= assetV %>"></script>
+  <script src="/js/store.js?v=<%= assetV %>"></script>
   <script>
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js');
-    }
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
   </script>
 </body>
 </html>

@@ -1,0 +1,17 @@
+<div class="section" id="section-<%= key %>"<%- (typeof hidden !== 'undefined' && hidden) ? ' hidden' : '' %>>
+  <div class="section-header">
+    <h2 class="section-title"><%= title %></h2>
+    <div class="section-rule"></div>
+    <div class="section-controls">
+      <% if (typeof control !== 'undefined' && control) { %><%- control %><% } %>
+      <div class="carousel-arrows">
+        <button class="carousel-arrow prev" data-section="<%= key %>" aria-label="Scroll left">❮</button>
+        <button class="carousel-arrow next" data-section="<%= key %>" aria-label="Scroll right">❯</button>
+      </div>
+    </div>
+  </div>
+  <% if (typeof sub !== 'undefined' && sub) { %><div class="section-sub" id="sub-<%= key %>"><%= sub %></div><% } %>
+  <div class="card-grid skeleton-grid" id="grid-<%= key %>">
+    <% for (let i = 0; i < 8; i++) { %><div class="skeleton-card"></div><% } %>
+  </div>
+</div>

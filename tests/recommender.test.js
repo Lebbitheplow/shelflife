@@ -204,3 +204,16 @@ test('rec cache round-trips through SQLite and survives corruption', () => {
   assert.strictEqual(db.getRecCache('s9'), null);
   assert.strictEqual(db.getRecCacheAge('s9'), null); // corrupt row was deleted
 });
+
+test('diversify caps repeats per developer and per series', () => {
+  const ranked = [
+    { appid: 1, developers: ['A'], series: 7 },
+    { appid: 2, developers: ['A'], series: 7 },
+    { appid: 3, developers: ['A'], series: null },   // third from dev A → skipped
+    { appid: 4, developers: ['B'], series: 7 },      // third in series 7 → skipped
+    { appid: 5, developers: ['C'], series: null },
+  ];
+  assert.deepStrictEqual(recommender.diversify(ranked, 3).map(g => g.appid), [1, 2, 5]);
+  // Too few survivors → plain ranked order
+  assert.deepStrictEqual(recommender.diversify(ranked.slice(0, 3), 3).map(g => g.appid), [1, 2, 3]);
+});

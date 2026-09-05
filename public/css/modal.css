@@ -1,0 +1,122 @@
+/* ShelfLife — detail modal, taste modal, score-reasons popup */
+
+.modal-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,.78); z-index: 200;
+  display: flex; align-items: flex-start; justify-content: center;
+  padding: 40px 16px 60px; overflow-y: auto; backdrop-filter: blur(4px);
+}
+.modal {
+  background: var(--surface); border: 1px solid rgba(255,255,255,.08); border-radius: var(--radius-lg);
+  width: 100%; max-width: 900px; overflow: hidden; position: relative; margin: auto;
+  box-shadow: 0 34px 90px rgba(0,0,0,.7);
+}
+.modal-close {
+  position: absolute; top: 12px; right: 12px; z-index: 10;
+  width: 32px; height: 32px; border-radius: 50%; cursor: pointer; color: #fff; font-size: 13px;
+  background: rgba(0,0,0,.5); border: 1px solid rgba(255,255,255,.18);
+  display: flex; align-items: center; justify-content: center; transition: background .15s;
+}
+.modal-close:hover { background: rgba(255,255,255,.15); }
+
+.modal-hero { width: 100%; height: 190px; position: relative; background: var(--surface-3) no-repeat center / cover; }
+.modal-hero::after { content: ''; position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(20,20,25,.1), var(--surface)); }
+
+.modal-body { display: flex; gap: 22px; padding: 0 26px 24px; margin-top: -58px; position: relative; z-index: 1; }
+.modal-poster {
+  width: 250px; min-width: 250px; aspect-ratio: 460/215; object-fit: cover; align-self: flex-start;
+  border-radius: 10px; border: 2px solid rgba(255,255,255,.14); box-shadow: 0 14px 34px rgba(0,0,0,.6); background: var(--surface-3);
+}
+.modal-info { flex: 1; min-width: 0; padding-top: 64px; }
+.modal-title { font: 700 26px var(--font-display); color: #fff; letter-spacing: -.02em; line-height: 1.15; margin-bottom: 4px; }
+.modal-meta { font: 500 11.5px var(--font-mono); color: var(--text-secondary); text-transform: uppercase; letter-spacing: .03em; margin-bottom: 14px; }
+
+.modal-ratings { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 15px; }
+.shelf-score {
+  display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px 5px 8px; border-radius: 9px;
+  font: 700 15px var(--font-display); color: var(--tier, var(--red));
+  background: var(--tier-bg, rgba(239,68,68,.13)); border: 1px solid var(--tier-bd, rgba(239,68,68,.36));
+  transition: filter .2s;
+}
+.shelf-score svg { width: 19px; height: 16px; }
+.shelf-score-label { font: 600 13px var(--font-body); opacity: .9; }
+.shelf-score--clickable { cursor: pointer; }
+.shelf-score--clickable:hover { filter: brightness(1.15); }
+.esrb-badge { height: 40px; width: auto; display: block; flex-shrink: 0; }
+
+.modal-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 15px; }
+.stat-tile { background: var(--surface-2); border: 1px solid var(--border); border-radius: 9px; padding: 8px 10px; min-width: 0; }
+.stat-tile-label { font: 600 9px var(--font-mono); color: var(--text-faint); letter-spacing: .06em; text-transform: uppercase; margin-bottom: 3px; }
+.stat-tile-value { font: 700 13px var(--font-display); color: #e9e9f2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stat-tile-value.gold { color: #f0c040; }
+.stat-tile-value.steam { color: var(--steam); }
+.stat-tile-value.green { color: #4ade80; }
+.stat-tile-value s { color: var(--text-muted); font-weight: 500; margin-right: 6px; }
+.stat-tile-sub { font: 500 9.5px var(--font-mono); color: var(--text-muted); margin-top: 2px; }
+
+.modal-reasons { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.modal-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 14px; }
+.tag-chip { font: 500 11px var(--font-mono); color: #9494ac; background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; padding: 3px 9px; }
+.cat-chip { font: 600 11px var(--font-body); color: var(--accent-soft); background: rgba(91,157,255,.1); border: 1px solid rgba(91,157,255,.26); border-radius: 6px; padding: 3px 9px; }
+.modal-desc { font: 400 13px/1.65 var(--font-body); color: #a6a6bd; margin-bottom: 16px; }
+.modal-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.modal-actions .btn { padding: 10px 20px; }
+
+.modal-trailer { display: none; width: 100%; aspect-ratio: 16/9; background: #000; line-height: 0; }
+.modal-trailer.active { display: block; }
+.modal-video { display: block; width: 100%; height: 100%; object-fit: contain; }
+.modal-yt { display: block; width: 100%; height: 100%; border: none; }
+
+/* ── Score reasons popup ── */
+.score-reasons-popup {
+  display: none; position: fixed; z-index: 2000;
+  background: var(--surface); border: 1px solid var(--border-2); border-radius: 12px; padding: 12px 14px;
+  box-shadow: 0 8px 32px rgba(0,0,0,.55);
+}
+.score-reasons-popup.visible { display: block; }
+.score-reasons-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.score-reasons-title { font: 700 10.5px var(--font-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--accent); }
+.score-reasons-close { background: none; border: none; color: var(--text-muted); font-size: 16px; line-height: 1; cursor: pointer; }
+.score-reasons-close:hover { color: var(--text); }
+.score-reasons-list { list-style: none; display: flex; flex-direction: column; gap: 7px; }
+.score-reasons-list li { font: 500 12.5px/1.4 var(--font-body); color: var(--text-2); display: flex; gap: 7px; }
+.score-reasons-list li::before { content: '✦'; color: var(--tier, var(--accent)); flex-shrink: 0; }
+
+/* ── Taste Profile / Score Guide modal ── */
+.taste-backdrop {
+  position: fixed; inset: 0; z-index: 1500; background: rgba(0,0,0,.72); backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center; padding: 16px;
+}
+.taste-modal {
+  background: var(--surface); border: 1px solid rgba(255,255,255,.08); border-radius: var(--radius-lg);
+  width: 100%; max-width: 720px; max-height: 90vh; overflow-y: auto; position: relative; padding: 28px;
+  box-shadow: 0 24px 70px rgba(0,0,0,.6);
+}
+.taste-modal-close { position: absolute; top: 14px; right: 16px; background: none; border: none; color: var(--text-muted); font-size: 14px; cursor: pointer; padding: 4px 6px; }
+.taste-modal-close:hover { color: var(--text); }
+.taste-modal-body { display: grid; grid-template-columns: 1fr 1fr; gap: 34px; }
+.taste-modal-heading { font: 700 11px var(--font-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--accent); margin-bottom: 16px; }
+.taste-interests-list { list-style: none; display: flex; flex-direction: column; gap: 11px; }
+.taste-interests-list li { display: flex; align-items: flex-start; gap: 9px; font: 500 13.5px/1.4 var(--font-body); color: var(--text-2); }
+.taste-interests-list li::before { content: '♥'; color: var(--green); font-size: 11px; margin-top: 2px; flex-shrink: 0; }
+.taste-loading, .taste-empty { color: var(--text-muted) !important; font-size: 12.5px !important; }
+.taste-loading::before, .taste-empty::before { display: none; }
+.taste-guide-intro { font: 400 12.5px/1.5 var(--font-body); color: var(--text-secondary); margin-bottom: 16px; }
+.taste-guide-list { list-style: none; display: flex; flex-direction: column; gap: 13px; }
+.taste-guide-list li { display: flex; align-items: flex-start; gap: 12px; }
+.taste-guide-badge { display: flex; align-items: center; gap: 5px; min-width: 66px; flex-shrink: 0; font: 700 12.5px var(--font-display); color: var(--tier); }
+.taste-guide-badge svg { width: 19px; height: 16px; }
+.taste-guide-desc { font: 400 12.5px/1.45 var(--font-body); color: var(--text-secondary); }
+.taste-guide-desc strong { color: var(--text-2); font-weight: 700; }
+
+@media (max-width: 700px) {
+  .modal-backdrop { padding: 12px; }
+  .modal-hero { height: 150px; }
+  .modal-body { flex-direction: column; padding: 0 18px 18px; margin-top: -46px; gap: 14px; }
+  .modal-poster { width: 100%; min-width: unset; }
+  .modal-info { padding-top: 0; }
+  .modal-title { font-size: 24px; }
+  .modal-stats { grid-template-columns: 1fr 1fr; }
+  .modal-actions .btn { flex: 1; }
+  .taste-modal-body { grid-template-columns: 1fr; gap: 24px; }
+  .taste-modal { padding: 22px 18px; }
+}

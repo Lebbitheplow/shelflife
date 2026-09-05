@@ -1,31 +1,27 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ShelfLife</title>
-  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-  <link rel="stylesheet" href="/css/style.css?v=<%= assetV %>">
+  <%- include('partials/head', { pageTitle: 'ShelfLife', sheets: ['landing'] }) %>
 </head>
 <body class="landing-body">
-  <%- include('partials/nav', { steamId: null }) %>
+  <div class="landing-backdrop" aria-hidden="true">
+    <img class="landing-backdrop-img" src="https://cdn.cloudflare.steamstatic.com/steam/apps/1245620/library_hero.jpg" alt="">
+    <img class="landing-capsule c1" src="https://cdn.cloudflare.steamstatic.com/steam/apps/1145360/library_600x900.jpg" alt="">
+    <img class="landing-capsule c2" src="https://cdn.cloudflare.steamstatic.com/steam/apps/367520/library_600x900.jpg" alt="">
+    <img class="landing-capsule c3" src="https://cdn.cloudflare.steamstatic.com/steam/apps/504230/library_600x900.jpg" alt="">
+    <img class="landing-capsule c4" src="https://cdn.cloudflare.steamstatic.com/steam/apps/632470/library_600x900.jpg" alt="">
+  </div>
+
+  <%- include('partials/nav', { profile: null }) %>
 
   <main class="landing-main">
     <div class="landing-hero">
       <div class="landing-logo">
-        <svg class="landing-logo-svg" viewBox="0 0 42 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect x="4" y="8" width="5" height="16" rx="1" fill="currentColor"/>
-          <rect x="10" y="11" width="4" height="13" rx="1" fill="currentColor"/>
-          <polygon points="15,22 15,13 19,15 19,22" fill="currentColor" opacity="0.75"/>
-          <polyline
-            points="2,24  20,24  23,24  25,18  27,28  29,14  31,24  34,24  40,24"
-            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"
-          />
-        </svg>
+        <%- include('partials/logo', { cls: 'landing-logo-svg' }) %>
         <span class="landing-logo-name">ShelfLife</span>
       </div>
       <p class="landing-tagline">Discover games you already own — but haven't played yet.</p>
-      <p class="landing-sub">Paste your Steam profile URL and get personalized picks from your own library,<br>scored by what you demonstrably love.</p>
+      <p class="landing-sub">Paste your Steam profile URL and get personalized picks from your own library, scored by what you demonstrably love.</p>
 
       <% if (typeof errorMsg !== 'undefined' && errorMsg) { %>
       <div class="landing-error"><%= errorMsg %></div>
@@ -39,8 +35,9 @@
           placeholder="https://steamcommunity.com/id/yourname"
           autocomplete="off"
           spellcheck="false"
+          aria-label="Steam profile URL"
         />
-        <button class="landing-btn" type="submit">Explore My Library</button>
+        <button class="btn btn-primary landing-btn" type="submit">Explore My Library</button>
       </form>
       <p class="landing-hint">Your Steam profile must be set to <strong>Public</strong> for this to work.</p>
     </div>

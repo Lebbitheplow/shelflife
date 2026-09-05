@@ -33,8 +33,10 @@ app.get('/sw.js', (req, res) => {
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-const { router: apiRouter, runLoadJob } = require('./routes/api');
+const { router: apiRouter } = require('./routes/api');
+const trailerRouter = require('./routes/trailer');
 const pagesRouter = require('./routes/pages');
+const { runLoadJob } = require('./services/loader');
 const db = require('./db/database');
 
 app.get('/health', (req, res) => {
@@ -47,6 +49,7 @@ app.get('/health', (req, res) => {
 });
 
 app.use('/api', apiRouter);
+app.use('/api', trailerRouter);
 app.use('/', pagesRouter);
 
 // Safety net for fire-and-forget background jobs — log instead of crashing

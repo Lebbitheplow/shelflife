@@ -54,23 +54,50 @@ async function getOwnedGames(steamId) {
   return json.response?.games || [];
 }
 
-async function fetchAppDetails(appid) {
-  if (db.isMetadataFresh(appid)) return db.getGameMetadata(appid);
+// Steam's store API throttles at roughly 200 requests per 5 minutes per IP.
+// When it does, back off instead of writing degraded rows for every remaining game.
+const STORE_BACKOFF_MS = 60_000;
+let storeBlockedUntil = 0;
+
+const STORE_COUNTRY = () => (process.env.STORE_COUNTRY || 'us').toLowerCase();
+
+// Persist the price block from a store appdetails payload (free games have no price_overview)
+function recordStorePrice(appid, storeData) {
+  if (!storeData) return;
+  const p = storeData.price_overview;
+  if (storeData.is_free) {
+    db.setStorePrice(appid, { currency: p?.currency || 'USD', initial: 0, final: 0, discount_percent: 0, is_free: true });
+  } else if (p) {
+    db.setStorePrice(appid, { currency: p.currency, initial: p.initial, final: p.final, discount_percent: p.discount_percent || 0, is_free: false });
+  }
+}
+
+async function fetchAppDetails(appid, { force = false } = {}) {
+  if (!force && db.isMetadataFresh(appid)) return db.getGameMetadata(appid);
 
   try {
+    const storeAllowed = Date.now() >= storeBlockedUntil;
     const [storeRes, spyRes] = await Promise.allSettled([
-      fetch(`${STORE_API}/appdetails?appids=${appid}&cc=us&l=en`, { signal: AbortSignal.timeout(8000) }),
+      storeAllowed
+        ? fetch(`${STORE_API}/appdetails?appids=${appid}&cc=${STORE_COUNTRY()}&l=en`, { signal: AbortSignal.timeout(8000) })
+        : Promise.reject(new Error('store backoff')),
       fetch(`https://steamspy.com/api.php?request=appdetails&appid=${appid}`, { signal: AbortSignal.timeout(8000) }),
     ]);
 
     let storeData = null;
-    if (storeRes.status === 'fulfilled' && storeRes.value.ok) {
-      try {
-        const json = await storeRes.value.json();
-        const entry = json?.[String(appid)];
-        if (entry?.success) storeData = entry.data;
-      } catch { /* non-JSON response from Steam (e.g. "Connection timed out") */ }
+    if (storeRes.status === 'fulfilled') {
+      if (storeRes.value.status === 429 || storeRes.value.status === 403) {
+        storeBlockedUntil = Date.now() + STORE_BACKOFF_MS;
+        console.warn(`[steam] store API rate limited (${storeRes.value.status}) — backing off ${STORE_BACKOFF_MS / 1000}s`);
+      } else if (storeRes.value.ok) {
+        try {
+          const json = await storeRes.value.json();
+          const entry = json?.[String(appid)];
+          if (entry?.success) storeData = entry.data;
+        } catch { /* non-JSON response from Steam (e.g. "Connection timed out") */ }
+      }
     }
+    recordStorePrice(appid, storeData);
 
     let spyData = null;
     if (spyRes.status === 'fulfilled' && spyRes.value.ok) {
@@ -81,9 +108,15 @@ async function fetchAppDetails(appid) {
 
     if (!storeData && !spyData) return null;
 
+    const existing = db.getGameMetadata(appid);
+    // Store call failed but we already have a full row: keep it rather than
+    // overwriting genres/categories/release date with blanks from SteamSpy alone.
+    if (!storeData && existing?.name && existing?.genres && existing.genres !== '[]') {
+      return existing;
+    }
+
     // Extract trailer — Steam now serves HLS/DASH streams, prefer hls_h264 for broadest compat
     // Preserve any existing trailer URL if the current API call didn't return one (rate limit / no trailer)
-    const existing = db.getGameMetadata(appid);
     let trailer_mp4 = existing?.trailer_mp4 || null;
     if (storeData?.movies?.length) {
       const movie = storeData.movies[0];
@@ -114,6 +147,7 @@ async function fetchAppDetails(appid) {
       header_image: storeData?.header_image || `https://cdn.akamai.steamstatic.com/steam/apps/${appid}/header.jpg`,
       release_date: storeData?.release_date?.date || null,
       esrb_rating: storeData?.ratings?.esrb?.rating || 'none',
+      app_type: storeData?.type || existing?.app_type || null,
     };
 
     db.setGameMetadata(appid, metadata);
@@ -122,29 +156,6 @@ async function fetchAppDetails(appid) {
     console.warn(`[steam] appdetails failed for ${appid}:`, err.message);
     return null;
   }
-}
-
-// Fetch metadata for a batch of appids with rate-limiting
-async function fetchMetadataBatch(appids, onProgress) {
-  const results = [];
-  const DELAY = 250; // ms between calls
-
-  for (let i = 0; i < appids.length; i++) {
-    const appid = appids[i];
-
-    // Use cached if fresh
-    if (db.isMetadataFresh(appid)) {
-      results.push(db.getGameMetadata(appid));
-    } else {
-      const data = await fetchAppDetails(appid);
-      if (data) results.push(data);
-      await sleep(DELAY);
-    }
-
-    if (onProgress) onProgress(i + 1, appids.length);
-  }
-
-  return results;
 }
 
 // Fetch all positive reviews the user has written — returns Set of appids they thumbed up
@@ -171,20 +182,6 @@ async function getPositiveReviews(steamId) {
     }
   } catch (err) {
     console.warn('[steam] reviews fetch failed:', err.message);
-  }
-
-  // Fallback: use the ISteamUser recommended endpoint
-  if (!appids.size) {
-    try {
-      const url = `${STEAM_API}/IReviewService/GetOwnedGames/v1/?key=${STEAM_API_KEY()}&steamid=${steamId}`;
-      const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
-      if (res.ok) {
-        const json = await res.json();
-        for (const r of (json.response?.reviews || [])) {
-          if (r.voted_up) appids.add(r.appid);
-        }
-      }
-    } catch {}
   }
 
   return appids;
@@ -243,4 +240,4 @@ async function getPlayerAchievements(steamId, appid) {
   }
 }
 
-module.exports = { resolveToSteamId, getPlayerSummary, getOwnedGames, fetchAppDetails, fetchMetadataBatch, getPositiveReviews, getPlayerAchievements, getFriendList, getFriendsPlaytimes };
+module.exports = { resolveToSteamId, getPlayerSummary, getOwnedGames, fetchAppDetails, getPositiveReviews, getPlayerAchievements, getFriendList, getFriendsPlaytimes, sleep };

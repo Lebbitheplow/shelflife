@@ -5,7 +5,7 @@
   <strong>Discover games you already own — but haven't played yet.</strong>
 </p>
 
-ShelfLife connects to your Steam library and surfaces personalized picks from your backlog, scored by what you demonstrably love. No ads, no recommendations to buy new games — just your shelf, filtered by taste.
+ShelfLife connects to your Steam library and surfaces personalized picks from your backlog, scored by what you demonstrably love. Your shelf comes first; a separate **Steam Store** tab ranks games you don't own against the same taste profile, with current prices and sale discounts.
 
 ### Home
 
@@ -15,16 +15,22 @@ ShelfLife connects to your Steam library and surfaces personalized picks from yo
 
 ![ShelfLife recommendations page](docs/screenshot-profile.png)
 
+### Steam Store
+
+![ShelfLife Steam Store tab](docs/screenshot-store.png)
+
 ## Features
 
+- **Spotlight hero** — your single best pick with its key art, plus an "Up Next" queue
 - **Top Picks** — scored recommendations based on your playtime patterns, tags, developers, and Steam reviews
 - **Never Touched** — games you own but have zero playtime
-- **Almost Started** — games with under 30 minutes played
+- **Almost Started** — games with under 2 hours played
 - **Friends Are Playing** — games your friends play that you've never launched (when your friends list is public)
 - **By Genre** — browse your backlog filtered by genre
 - **Time to beat** — IGDB main-story estimates on each card, plus total hours to clear your backlog
 - **Detail Modal** — game art, trailer video (Steam HLS or YouTube fallback), ratings, tags, and why it was recommended
 - **Personalized reasons** — "Because you loved X", "More from Y (you loved Z)", franchise detection
+- **Steam Store tab** — games you don't own, browsed from the store by your top tags and ranked with the same Shelf Score; shows price, sale discount, and free-to-play picks. Prices use `STORE_COUNTRY` (default US)
 - **Mobile friendly** — responsive layout down to 320px
 
 ## Tech Stack
@@ -102,9 +108,11 @@ docker compose pull && docker compose up -d
 2. ShelfLife fetches your owned games via the Steam Web API
 3. Metadata (tags, genres, ratings, trailers) is pulled from SteamSpy and the Steam Store API and cached locally
 4. Your positively-reviewed games are fetched and weighted 1.5x in scoring
-5. A preference profile is built from your playtime: tag weights, developer weights, franchise signals
-6. Every unplayed/barely-played game is scored against that profile
-7. Results are cached for 6 hours — subsequent visits load instantly
+5. A preference profile is built from your playtime: IDF-weighted tag weights, genre/developer/category weights, franchise signals, recency (games played in the last 90 days count more), and a small penalty for tags shared with games you launched briefly and abandoned
+6. Every unplayed/barely-played game is scored against that profile: tag/genre/developer/category overlap, item-similarity to the specific games you loved most (Jaccard over tags), Metacritic, Steam reviews (Wilson lower bound, so small samples don't inflate), and release recency
+7. The featured Top 20 is diversified so one studio or series can't crowd it out
+8. Results are cached — subsequent visits load instantly; a background job refreshes active users daily
+9. The Steam Store tab searches the storefront by your strongest tags (plus current specials), drops games you own, fetches details and prices for the best ~75 candidates, and scores them the same way. It rebuilds every 12 hours so sale prices stay current
 
 ## Configuration
 
@@ -114,6 +122,8 @@ docker compose pull && docker compose up -d
 | `PORT` | Port to listen on (default: 3233) |
 | `IGDB_CLIENT_ID` / `IGDB_CLIENT_SECRET` | Twitch/IGDB credentials (optional) — enables franchise detection and time-to-beat estimates |
 | `YOUTUBE_API_KEY` | YouTube Data API v3 key (optional) — falls back to YouTube search for games with no Steam trailer. Requires an **IP address** restriction (not HTTP referrer) since requests are made server-side. |
+| `STORE_COUNTRY` | Two-letter Steam store country code for prices (default: `us`) |
+| `REFRESH_INTERVAL_HOURS` | How often active users' data is refreshed in the background (default: 24) |
 
 ## Notes
 

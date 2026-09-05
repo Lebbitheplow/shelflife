@@ -3,9 +3,14 @@
 // asset versions the views link to.
 const CACHE = 'shelflife-__APP_VERSION__';
 const STATIC = [
-  '/css/style.css?v=__APP_VERSION__',
+  '/css/base.css?v=__APP_VERSION__',
+  '/css/landing.css?v=__APP_VERSION__',
+  '/css/library.css?v=__APP_VERSION__',
+  '/css/modal.css?v=__APP_VERSION__',
   '/js/helpers.js?v=__APP_VERSION__',
+  '/js/cards.js?v=__APP_VERSION__',
   '/js/app.js?v=__APP_VERSION__',
+  '/js/store.js?v=__APP_VERSION__',
   '/js/modal.js?v=__APP_VERSION__',
   '/js/landing.js?v=__APP_VERSION__',
   '/favicon.svg',
@@ -42,8 +47,7 @@ self.addEventListener('fetch', e => {
       caches.match(e.request).then(cached => {
         if (cached) return cached;
         return fetch(e.request).then(res => {
-          const clone = res.clone();
-          caches.open(CACHE).then(c => c.put(e.request, clone));
+          if (res.ok) caches.open(CACHE).then(c => c.put(e.request, res.clone()));
           return res;
         });
       })

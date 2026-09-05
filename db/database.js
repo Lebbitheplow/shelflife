@@ -83,6 +83,28 @@ db.exec(`
   );
 `);
 
+db.exec(`
+  CREATE TABLE IF NOT EXISTS store_prices (
+    appid INTEGER PRIMARY KEY,
+    currency TEXT,
+    initial INTEGER,
+    final INTEGER,
+    discount_percent INTEGER,
+    is_free INTEGER,
+    fetched_at INTEGER NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS discover_cache (
+    steam_id TEXT PRIMARY KEY,
+    pools TEXT,
+    built_at INTEGER
+  );
+  CREATE TABLE IF NOT EXISTS kv_cache (
+    key TEXT PRIMARY KEY,
+    value TEXT,
+    fetched_at INTEGER NOT NULL
+  );
+`);
+
 // Migrations — must run after CREATE TABLE so they work on both fresh and existing DBs
 try { db.exec('ALTER TABLE game_metadata ADD COLUMN igdb_id INTEGER'); } catch {}
 try { db.exec('ALTER TABLE game_metadata ADD COLUMN igdb_collection INTEGER'); } catch {}
@@ -90,6 +112,7 @@ try { db.exec('ALTER TABLE game_metadata ADD COLUMN esrb_rating TEXT'); } catch 
 try { db.exec('ALTER TABLE user_profile ADD COLUMN last_active INTEGER'); } catch {}
 try { db.exec('ALTER TABLE game_metadata ADD COLUMN ttb_normally INTEGER'); } catch {}
 try { db.exec('ALTER TABLE game_metadata ADD COLUMN ttb_completely INTEGER'); } catch {}
+try { db.exec('ALTER TABLE game_metadata ADD COLUMN app_type TEXT'); } catch {}
 
 // Game metadata
 function getGameMetadata(appid) {
@@ -97,12 +120,16 @@ function getGameMetadata(appid) {
 }
 
 function setGameMetadata(appid, data) {
+  // INSERT OR REPLACE would wipe columns owned by other writers (igdb_id, ttb_*),
+  // so preserve them explicitly from the existing row.
+  const existing = db.prepare('SELECT igdb_id, igdb_collection, ttb_normally, ttb_completely FROM game_metadata WHERE appid = ?').get(appid);
   db.prepare(`
     INSERT OR REPLACE INTO game_metadata
       (appid, name, short_description, developers, publishers, genres, categories,
        tags, metacritic_score, steam_positive, steam_negative, trailer_mp4,
-       header_image, release_date, esrb_rating, fetched_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       header_image, release_date, esrb_rating, app_type,
+       igdb_id, igdb_collection, ttb_normally, ttb_completely, fetched_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     appid,
     data.name || null,
@@ -119,6 +146,11 @@ function setGameMetadata(appid, data) {
     data.header_image || null,
     data.release_date || null,
     data.esrb_rating || null,
+    data.app_type || null,
+    existing?.igdb_id ?? null,
+    existing?.igdb_collection ?? null,
+    existing?.ttb_normally ?? null,
+    existing?.ttb_completely ?? null,
     Math.floor(Date.now() / 1000)
   );
 }
@@ -135,7 +167,7 @@ function getGameMetadataBatch(appids) {
   return results;
 }
 
-function isMetadataFresh(appid, ttlDays = 7) {
+function isMetadataFresh(appid, ttlDays = 30) {
   const row = db.prepare('SELECT fetched_at, esrb_rating FROM game_metadata WHERE appid = ?').get(appid);
   if (!row) return false;
   if (row.esrb_rating === null || row.esrb_rating === undefined) return false;
@@ -284,6 +316,58 @@ function setTimeToBeat(appid, normally, completely) {
     .run(normally, completely, appid);
 }
 
+// Store prices — short TTL because sales come and go
+function setStorePrice(appid, { currency, initial, final, discount_percent, is_free }) {
+  db.prepare(`
+    INSERT OR REPLACE INTO store_prices (appid, currency, initial, final, discount_percent, is_free, fetched_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(appid, currency || null, initial ?? null, final ?? null, discount_percent ?? 0, is_free ? 1 : 0, Math.floor(Date.now() / 1000));
+}
+
+function getStorePrice(appid) {
+  return db.prepare('SELECT * FROM store_prices WHERE appid = ?').get(appid) || null;
+}
+
+function isStorePriceFresh(appid, ttlHours = 12) {
+  const row = db.prepare('SELECT fetched_at FROM store_prices WHERE appid = ?').get(appid);
+  if (!row) return false;
+  return (Date.now() / 1000 - row.fetched_at) < ttlHours * 3600;
+}
+
+// Discover cache — store recommendations (games the user doesn't own)
+function getDiscoverCache(steamId) {
+  const row = db.prepare('SELECT * FROM discover_cache WHERE steam_id = ?').get(steamId);
+  if (!row) return null;
+  try {
+    return { pools: JSON.parse(row.pools), builtAt: row.built_at };
+  } catch {
+    db.prepare('DELETE FROM discover_cache WHERE steam_id = ?').run(steamId);
+    return null;
+  }
+}
+
+function setDiscoverCache(steamId, pools) {
+  db.prepare('INSERT OR REPLACE INTO discover_cache (steam_id, pools, built_at) VALUES (?, ?, ?)')
+    .run(steamId, JSON.stringify(pools), Math.floor(Date.now() / 1000));
+}
+
+function clearDiscoverCache(steamId) {
+  db.prepare('DELETE FROM discover_cache WHERE steam_id = ?').run(steamId);
+}
+
+// Generic JSON key/value cache with TTL (e.g. Steam tag id map)
+function getKV(key, ttlSeconds) {
+  const row = db.prepare('SELECT value, fetched_at FROM kv_cache WHERE key = ?').get(key);
+  if (!row) return null;
+  if (ttlSeconds != null && (Date.now() / 1000 - row.fetched_at) >= ttlSeconds) return null;
+  try { return JSON.parse(row.value); } catch { return null; }
+}
+
+function setKV(key, value) {
+  db.prepare('INSERT OR REPLACE INTO kv_cache (key, value, fetched_at) VALUES (?, ?, ?)')
+    .run(key, JSON.stringify(value), Math.floor(Date.now() / 1000));
+}
+
 function healthCheck() {
   db.prepare('SELECT 1').get();
   return true;
@@ -357,5 +441,8 @@ module.exports = {
   setAchievements, getAchievements, isAchievementFresh,
   addDismissal, removeDismissal, getDismissals,
   getTtbCandidates, setTimeToBeat,
+  setStorePrice, getStorePrice, isStorePriceFresh,
+  getDiscoverCache, setDiscoverCache, clearDiscoverCache,
+  getKV, setKV,
   healthCheck,
 };
